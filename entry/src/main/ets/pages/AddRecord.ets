@@ -33,9 +33,12 @@ struct AddRecord {
     ['.', '0', '⌫']
   ];
 
-  get amount(): number {
+  // 计算当前金额（普通方法，避免 getter this 绑定问题）
+  calcAmount(): number {
     if (this.amountStr === '') return 0;
-    return Math.round(parseFloat(this.amountStr) * 100) / 100;
+    const v = parseFloat(this.amountStr);
+    if (isNaN(v)) return 0;
+    return Math.round(v * 100) / 100;
   }
 
   aboutToAppear(): void {
@@ -122,7 +125,8 @@ struct AddRecord {
   }
 
   async save(): Promise<void> {
-    if (this.amount <= 0) {
+    const amt = this.calcAmount();
+    if (amt <= 0) {
       promptAction.showToast({ message: '请输入金额' });
       return;
     }
@@ -133,7 +137,7 @@ struct AddRecord {
     const tx: Transaction = {
       id: genId(),
       type: this.isExpense ? TxType.Expense : TxType.Income,
-      amount: this.amount,
+      amount: amt,
       categoryId: this.selectedCatId,
       note: this.note,
       date: this.dateStr,

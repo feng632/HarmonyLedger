@@ -111,7 +111,11 @@ export class DataStore {
     const raw = await this.getRaw(KEY_TRANSACTIONS);
     if (!raw) return [];
     try {
-      return JSON.parse(raw) as Transaction[];
+      const list = JSON.parse(raw) as Transaction[];
+      // 过滤无效记录（金额非数字等脏数据）
+      return list.filter(t =>
+        t && t.amount !== undefined && t.amount !== null && !isNaN(t.amount) && t.amount > 0
+      );
     } catch (e) {
       return [];
     }

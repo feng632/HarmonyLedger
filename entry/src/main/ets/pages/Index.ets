@@ -47,6 +47,11 @@ struct Index {
     this.loadData();
   }
 
+  // 每次页面显示时刷新（从记一笔返回后数据立即更新）
+  onPageShow(): void {
+    this.loadData();
+  }
+
   async loadData(): Promise<void> {
     try {
       const ctx = this.getUIContext().getHostContext();

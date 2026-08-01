@@ -50,14 +50,16 @@ struct BudgetPage {
       .reduce((sum, t) => sum + t.amount, 0);
   }
 
-  get pct(): number {
+  // 预算使用率（普通方法，避免 getter this 绑定问题）
+  calcPct(): number {
     if (this.budgetAmount <= 0) return 0;
     return Math.min(this.spent / this.budgetAmount * 100, 100);
   }
 
-  get barColor(): string {
-    if (this.pct >= 90) return this.theme.danger;
-    if (this.pct >= 70) return this.theme.warning;
+  calcBarColor(): string {
+    const p = this.calcPct();
+    if (p >= 90) return this.theme.danger;
+    if (p >= 70) return this.theme.warning;
     return this.theme.accent;
   }
 
@@ -171,10 +173,10 @@ struct BudgetPage {
                     .borderRadius(3)
                     .backgroundColor(this.theme.bgElevated)
                   Row()
-                    .width(`${this.pct}%`)
+                    .width(`${this.calcPct()}%`)
                     .height(6)
                     .borderRadius(3)
-                    .backgroundColor(this.barColor)
+                    .backgroundColor(this.calcBarColor())
                 }
                 .width('100%')
                 .height(6)
