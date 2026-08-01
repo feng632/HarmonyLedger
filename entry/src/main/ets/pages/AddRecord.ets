@@ -1,11 +1,13 @@
 /**
- * 记一笔 — 支出/收入录入（自定义数字键盘）
+ * 记一笔 — 支出/收入录入（自定义数字键盘，Row 布局保证可点击）
  */
 import { DataStore } from '../model/DataStore';
 import { Category, Transaction, TxType, DateUtil, genId } from '../model/Models';
 import { ThemeColors, getTheme, DARK_THEME } from '../common/Theme';
 import { router } from '@kit.ArkUI';
 import { promptAction } from '@kit.ArkUI';
+import { BusinessError } from '@kit.BasicServicesKit';
+import { vibrator } from '@kit.SensorServiceKit';
 
 const store = DataStore.getInstance();
 
@@ -21,9 +23,24 @@ struct AddRecord {
   @State note: string = '';
   @State dateStr: string = DateUtil.today();
 
+  // 数字键盘布局（4 行 × 3 列）
+  private keys: string[][] = [
+    ['1', '2', '3'],
+    ['4', '5', '6'],
+    ['7', '8', '9'],
+    ['.', '0', '⌫']
+  ];
+
   get amount(): number {
     if (this.amountStr === '') return 0;
     return Math.round(parseFloat(this.amountStr) * 100) / 100;
+  }
+
+  get displayAmount(): string {
+    if (this.amountStr === '') return '0.00';
+    const parts = this.amountStr.split('.');
+    if (parts.length === 1) return this.amountStr + '.00';
+    return this.amountStr + '0'.repeat(Math.max(0, 2 - parts[1].length));
   }
 
   aboutToAppear(): void {
@@ -49,19 +66,32 @@ struct AddRecord {
     if (this.isExpense === expense) return;
     this.isExpense = expense;
     this.selectedCatId = '';
+    this.amountStr = '';
     this.loadCats();
   }
 
+  // 数字键盘输入
   inputDigit(d: string): void {
     let val = this.amountStr;
     if (d === '.' && val.includes('.')) return;
     if (val.includes('.') && val.split('.')[1].length >= 2) return;
     if (d !== '.' && val.replace('.', '').length >= 8) return;
     this.amountStr = val + d;
+    this.haptic();
   }
 
   inputDel(): void {
     this.amountStr = this.amountStr.slice(0, -1);
+    this.haptic();
+  }
+
+  haptic(): void {
+    try {
+      vibrator.startVibration({ type: 'time', duration: 12 }, { usage: 'physicalFeedback' })
+        .catch((e: BusinessError) => {});
+    } catch (e) {
+      // 震动失败忽略
+    }
   }
 
   showDatePicker(): void {
@@ -100,6 +130,26 @@ struct AddRecord {
     router.back();
   }
 
+  @Builder
+  keyButton(key: string) {
+    Text(key)
+      .fontSize(26)
+      .fontWeight(FontWeight.Medium)
+      .fontColor(this.theme.textPrimary)
+      .textAlign(TextAlign.Center)
+      .width('100%')
+      .height(50)
+      .backgroundColor(this.theme.bgElevated)
+      .borderRadius(10)
+      .onClick(() => {
+        if (key === '⌫') {
+          this.inputDel();
+        } else {
+          this.inputDigit(key);
+        }
+      })
+  }
+
   build() {
     Column() {
       // ===== 导航栏 =====
@@ -126,7 +176,7 @@ struct AddRecord {
 
       Scroll() {
         Column() {
-          // ===== 类型切换 =====
+          // ===== 类型切换（支出 / 收入）=====
           Row() {
             Text('支出')
               .fontSize(14)
@@ -146,7 +196,7 @@ struct AddRecord {
               .textAlign(TextAlign.Center)
               .height(40)
               .layoutWeight(1)
-              .backgroundColor(!this.isExpense ? this.theme.accent : Color.Transparent)
+              .backgroundColor(!this.isExpense ? this.theme.income : Color.Transparent)
               .borderRadius(10)
               .onClick(() => this.switchType(false))
           }
@@ -156,23 +206,39 @@ struct AddRecord {
           .border({ width: 1, color: this.theme.border })
           .padding(4)
 
-          // ===== 金额显示 =====
-          Text('¥ ' + (this.amountStr === '' ? '0.00' : this.amountStr))
-            .fontSize(52)
-            .fontWeight(FontWeight.Lighter)
-            .fontColor(this.amountStr === '' ? this.theme.textMuted : this.theme.textPrimary)
-            .fontFeature('tnum')
-            .textAlign(TextAlign.Center)
-            .width('100%')
-            .padding({ top: 28, bottom: 28 })
+          // ===== 金额显示（带圆角卡底）=====
+          Column() {
+            Text(this.isExpense ? '本月支出' : '本月收入')
+              .fontSize(11)
+              .fontColor(this.theme.textSecondary)
+              .letterSpacing(1)
+            Text('¥ ' + this.displayAmount)
+              .fontSize(46)
+              .fontWeight(FontWeight.Lighter)
+              .fontColor(this.amountStr === '' ? this.theme.textMuted : this.isExpense ? this.theme.textPrimary : this.theme.income)
+              .fontFeature('tnum')
+              .margin({ top: 8 })
+          }
+          .width('100%')
+          .padding({ top: 18, bottom: 18 })
+          .backgroundColor(this.theme.bgCard)
+          .borderRadius(16)
+          .border({ width: 1, color: this.theme.border })
+          .margin({ top: 14, bottom: 14 })
 
           // ===== 分类 =====
           Column() {
-            Text('分类')
-              .fontSize(13)
-              .fontColor(this.theme.textSecondary)
-              .width('100%')
-              .margin({ bottom: 12 })
+            Row() {
+              Text('分类')
+                .fontSize(13)
+                .fontColor(this.theme.textSecondary)
+                .layoutWeight(1)
+              Text('点击选择')
+                .fontSize(11)
+                .fontColor(this.theme.textMuted)
+            }
+            .width('100%')
+            .margin({ bottom: 12 })
 
             Grid() {
               ForEach(this.cats, (cat: Category) => {
@@ -201,6 +267,7 @@ struct AddRecord {
                   .backgroundColor(this.selectedCatId === cat.id ? this.theme.accentMuted : Color.Transparent)
                   .onClick(() => {
                     this.selectedCatId = cat.id;
+                    this.haptic();
                   })
                 }
               }, (cat: Category) => cat.id)
@@ -283,18 +350,21 @@ struct AddRecord {
       .layoutWeight(1)
       .scrollBar(BarState.Off)
 
-      // ===== 自定义数字键盘 =====
+      // ===== 自定义数字键盘（Row 布局，保证可点击）=====
       Column() {
-        Grid() {
-          ForEach(['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'], (key: string) => {
-            GridItem() {
+        ForEach(this.keys, (row: string[]) => {
+          Row() {
+            ForEach(row, (key: string) => {
               Text(key)
                 .fontSize(26)
                 .fontWeight(FontWeight.Medium)
                 .fontColor(this.theme.textPrimary)
-                .width('100%')
-                .height(50)
                 .textAlign(TextAlign.Center)
+                .width('33.3%')
+                .height(52)
+                .margin({ top: 6, bottom: 6, left: 4, right: 4 })
+                .backgroundColor(this.theme.bgElevated)
+                .borderRadius(12)
                 .onClick(() => {
                   if (key === '⌫') {
                     this.inputDel();
@@ -302,15 +372,13 @@ struct AddRecord {
                     this.inputDigit(key);
                   }
                 })
-            }
-          }, (key: string) => key)
-        }
-        .columnsTemplate('1fr 1fr 1fr')
-        .rowsGap(2)
-        .width('100%')
-        .padding({ left: 8, right: 8, top: 8, bottom: 4 })
+            }, (key: string) => key)
+          }
+          .width('100%')
+        }, (row: string[]) => row[0])
       }
       .width('100%')
+      .padding({ left: 8, right: 8, top: 8, bottom: 8 })
       .backgroundColor(this.theme.bgCard)
       .border({ width: { top: 1 }, color: this.theme.border })
     }
