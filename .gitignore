@@ -1,0 +1,26 @@
+# ===== 构建产物 =====
+entry/build/
+build/
+*.hap
+*.app
+
+# ===== 签名与证书（敏感，勿上传！）=====
+*.p12
+*.p7b
+*.cer
+*.csr
+*.keystore
+**/signingConfigs/
+
+# ===== DevEco / hvigor 缓存 =====
+.idea/
+*.iml
+.hvigor/
+oh_modules/
+local.properties
+node_modules/
+
+# ===== 系统文件 =====
+.DS_Store
+Thumbs.db
+*.log

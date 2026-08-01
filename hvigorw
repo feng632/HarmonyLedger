@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+# hvigor wrapper for Unix-like shells
+HVIGOR_PROJECT_PATH="$(cd "$(dirname "$0")" && pwd)"
+HVIGOR_WRAPPER_HOME="${HVIGOR_PROJECT_PATH}/hvigor"
+if [ -z "${HVIGOR_HOME}" ]; then
+  HVIGOR_HOME="$HOME/.hvigor/project_caches"
+fi
+if [ -f "${HVIGOR_WRAPPER_HOME}/hvigor-wrapper.js" ]; then
+  exec node "${HVIGOR_WRAPPER_HOME}/hvigor-wrapper.js" "$@"
+fi
+echo "[hvigor] hvigor-wrapper.js not found. Please open this project with DevEco Studio."
+exit 1

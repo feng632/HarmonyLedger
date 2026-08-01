@@ -1,0 +1,9 @@
+{
+  "src": [
+    "pages/Index",
+    "pages/AddRecord",
+    "pages/Records",
+    "pages/Budget",
+    "pages/Settings"
+  ]
+}
