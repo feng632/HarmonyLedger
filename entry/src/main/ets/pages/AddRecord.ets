@@ -19,7 +19,9 @@ struct AddRecord {
   @State isExpense: boolean = true;
   @State cats: Category[] = [];
   @State selectedCatId: string = '';
+  @State selectedCatName: string = '';
   @State amountStr: string = '';
+  @State displayAmount: string = '0.00';
   @State note: string = '';
   @State dateStr: string = DateUtil.today();
 
@@ -34,13 +36,6 @@ struct AddRecord {
   get amount(): number {
     if (this.amountStr === '') return 0;
     return Math.round(parseFloat(this.amountStr) * 100) / 100;
-  }
-
-  get displayAmount(): string {
-    if (this.amountStr === '') return '0.00';
-    const parts = this.amountStr.split('.');
-    if (parts.length === 1) return this.amountStr + '.00';
-    return this.amountStr + '0'.repeat(Math.max(0, 2 - parts[1].length));
   }
 
   aboutToAppear(): void {
@@ -66,8 +61,25 @@ struct AddRecord {
     if (this.isExpense === expense) return;
     this.isExpense = expense;
     this.selectedCatId = '';
+    this.selectedCatName = '';
     this.amountStr = '';
+    this.updateDisplayAmount();
     this.loadCats();
+  }
+
+  // 更新金额显示（自动补全两位小数）
+  updateDisplayAmount(): void {
+    if (this.amountStr === '') {
+      this.displayAmount = '0.00';
+      return;
+    }
+    const parts = this.amountStr.split('.');
+    if (parts.length === 1) {
+      this.displayAmount = this.amountStr + '.00';
+      return;
+    }
+    const pad = 2 - parts[1].length;
+    this.displayAmount = pad > 0 ? this.amountStr + '0'.repeat(pad) : this.amountStr;
   }
 
   // 数字键盘输入
@@ -77,11 +89,13 @@ struct AddRecord {
     if (val.includes('.') && val.split('.')[1].length >= 2) return;
     if (d !== '.' && val.replace('.', '').length >= 8) return;
     this.amountStr = val + d;
+    this.updateDisplayAmount();
     this.haptic();
   }
 
   inputDel(): void {
     this.amountStr = this.amountStr.slice(0, -1);
+    this.updateDisplayAmount();
     this.haptic();
   }
 
@@ -267,6 +281,7 @@ struct AddRecord {
                   .backgroundColor(this.selectedCatId === cat.id ? this.theme.accentMuted : Color.Transparent)
                   .onClick(() => {
                     this.selectedCatId = cat.id;
+                    this.selectedCatName = cat.name;
                     this.haptic();
                   })
                 }
@@ -329,20 +344,6 @@ struct AddRecord {
           .border({ width: 1, color: this.theme.border })
           .padding({ left: 20, right: 20, top: 12, bottom: 12 })
           .margin({ bottom: 14 })
-
-          // ===== 保存 =====
-          Button() {
-            Text('保存')
-              .fontSize(16)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(Color.White)
-          }
-          .width('100%')
-          .height(50)
-          .backgroundColor(this.theme.accent)
-          .borderRadius(14)
-          .onClick(() => this.save())
-          .margin({ bottom: 16 })
         }
         .width('100%')
         .padding({ left: 16, right: 16 })
@@ -350,7 +351,22 @@ struct AddRecord {
       .layoutWeight(1)
       .scrollBar(BarState.Off)
 
-      // ===== 自定义数字键盘（Row 布局，保证可点击）=====
+      // ===== 保存按钮（固定，不被键盘遮挡）=====
+      Button() {
+        Text(this.isExpense ? '保存支出' : '保存收入')
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(Color.White)
+      }
+      .width('calc(100% - 32px)')
+      .height(50)
+      .backgroundColor(this.isExpense ? this.theme.accent : this.theme.income)
+      .borderRadius(14)
+      .shadow({ radius: 8, color: (this.isExpense ? this.theme.accent : this.theme.income) + '44', offsetY: 3 })
+      .onClick(() => this.save())
+      .margin({ bottom: 10 })
+
+      // ===== 自定义数字键盘（Row 布局 + 按压缩放反馈）=====
       Column() {
         ForEach(this.keys, (row: string[]) => {
           Row() {
@@ -362,9 +378,16 @@ struct AddRecord {
                 .textAlign(TextAlign.Center)
                 .width('33.3%')
                 .height(52)
-                .margin({ top: 6, bottom: 6, left: 4, right: 4 })
+                .margin({ top: 5, bottom: 5, left: 4, right: 4 })
                 .backgroundColor(this.theme.bgElevated)
                 .borderRadius(12)
+                .shadow({ radius: 6, color: 'rgba(0,0,0,0.18)', offsetY: 2 })
+                .stateStyles({
+                  pressed: {
+                    .scale({ x: 0.92, y: 0.92 })
+                    .backgroundColor(this.theme.border)
+                  }
+                })
                 .onClick(() => {
                   if (key === '⌫') {
                     this.inputDel();
@@ -378,7 +401,7 @@ struct AddRecord {
         }, (row: string[]) => row[0])
       }
       .width('100%')
-      .padding({ left: 8, right: 8, top: 8, bottom: 8 })
+      .padding({ left: 8, right: 8, top: 6, bottom: 8 })
       .backgroundColor(this.theme.bgCard)
       .border({ width: { top: 1 }, color: this.theme.border })
     }
