@@ -37,6 +37,21 @@
           }
         ]
       }
+    ],
+    "extensionAbilities": [
+      {
+        "name": "FormAbility",
+        "srcEntry": "./ets/formability/FormAbility.ets",
+        "label": "$string:balance_card_name",
+        "description": "$string:balance_card_desc",
+        "type": "form",
+        "metadata": [
+          {
+            "name": "ohos.extension.form",
+            "resource": "$profile:form_config"
+          }
+        ]
+      }
     ]
   }
 }

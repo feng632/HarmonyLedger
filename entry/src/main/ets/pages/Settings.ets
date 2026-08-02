@@ -6,6 +6,7 @@ import { Category, TxType, genId, CATEGORY_COLORS } from '../model/Models';
 import { ThemeColors, getTheme, getGlassTheme, DARK_THEME } from '../common/Theme';
 import { GlassBackground, loadGlassState } from '../common/GlassComponents';
 import { pickAndSaveWallpaper, getWallpaperPath, removeWallpaper, GLASS_BLUR_MIN, GLASS_BLUR_MAX } from '../common/GlassKit';
+import { exportBackup, importBackup } from '../common/BackupKit';
 import { router } from '@kit.ArkUI';
 import { promptAction } from '@kit.ArkUI';
 
@@ -108,6 +109,46 @@ struct Settings {
   async onBlurChange(v: number): Promise<void> {
     this.glassBlur = v;
     await store.saveGlassBlur(v);
+  }
+
+  // 导出备份
+  async doExport(): Promise<void> {
+    const ctx = this.getUIContext().getHostContext();
+    if (!ctx) return;
+    promptAction.showToast({ message: '选择保存位置...' });
+    const uri = await exportBackup(ctx);
+    if (uri.length > 0) {
+      promptAction.showToast({ message: '备份已导出 ✓' });
+    }
+  }
+
+  // 恢复备份
+  doImport(): void {
+    promptAction.showDialog({
+      title: '恢复数据',
+      message: '恢复会覆盖当前全部数据，确定继续吗？',
+      buttons: [
+        { text: '取消', color: this.theme.textSecondary },
+        { text: '恢复', color: this.theme.danger }
+      ]
+    }).then((res) => {
+      if (res.index === 1) {
+        this.doImportConfirm();
+      }
+    }).catch(() => {});
+  }
+
+  async doImportConfirm(): Promise<void> {
+    const ctx = this.getUIContext().getHostContext();
+    if (!ctx) return;
+    promptAction.showToast({ message: '选择备份文件...' });
+    const ok = await importBackup(ctx);
+    if (ok) {
+      promptAction.showToast({ message: '数据已恢复 ✓' });
+      this.load();
+    } else {
+      promptAction.showToast({ message: '恢复失败，文件无效' });
+    }
   }
 
   toggleTheme(): void {
@@ -500,6 +541,53 @@ struct Settings {
                   .borderRadius(8)
                   .onClick(() => this.pickWallpaper())
               }
+            }
+            .width('100%')
+          }
+          .width('100%')
+          .backgroundColor(this.theme.bgCard)
+          .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
+          .borderRadius(20)
+          .border({ width: 1, color: this.theme.border })
+          .padding(20)
+          .margin({ bottom: 14 })
+
+          // ===== 数据备份 =====
+          Column() {
+            Row() {
+              Column() {
+                Text('数据备份')
+                  .fontSize(15)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor(this.theme.textPrimary)
+                Text('导出/恢复全部账目数据')
+                  .fontSize(11)
+                  .fontColor(this.theme.textMuted)
+                  .margin({ top: 3 })
+              }
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
+            }
+            .width('100%')
+            .margin({ bottom: 12 })
+
+            Row() {
+              Text('导出备份')
+                .fontSize(13)
+                .fontColor(Color.White)
+                .padding({ left: 14, right: 14, top: 6, bottom: 6 })
+                .backgroundColor(this.theme.accent)
+                .borderRadius(8)
+                .onClick(() => this.doExport())
+
+              Text('恢复数据')
+                .fontSize(13)
+                .fontColor(this.theme.accent)
+                .padding({ left: 14, right: 14, top: 6, bottom: 6 })
+                .backgroundColor(this.theme.accentMuted)
+                .borderRadius(8)
+                .margin({ left: 10 })
+                .onClick(() => this.doImport())
             }
             .width('100%')
           }

@@ -4,6 +4,8 @@
     "pages/AddRecord",
     "pages/Records",
     "pages/Budget",
-    "pages/Settings"
+    "pages/Settings",
+    "pages/CategoryDetail",
+    "pages/CalendarPage"
   ]
 }

@@ -11,6 +11,14 @@
     {
       "name": "EntryAbility_label",
       "value": "记账"
+    },
+    {
+      "name": "balance_card_name",
+      "value": "本月余额"
+    },
+    {
+      "name": "balance_card_desc",
+      "value": "查看本月余额、收入与支出"
     }
   ]
 }

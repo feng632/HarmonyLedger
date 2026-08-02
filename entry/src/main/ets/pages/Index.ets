@@ -23,6 +23,12 @@ interface DonutPart {
   endAngle: number;
 }
 
+interface TrendMonth {
+  label: string;
+  income: number;
+  expense: number;
+}
+
 @Entry
 @Component
 struct Index {
@@ -45,6 +51,8 @@ struct Index {
   @State donutParts: DonutPart[] = [];
   // 图表刷新版本号（数据更新时自增，强制重建图表）
   @State chartVersion: number = 0;
+  // 月度趋势数据（最近 6 个月）
+  @State trendData: TrendMonth[] = [];
 
   // 玻璃模式状态
   @State glassEnabled: boolean = false;
@@ -78,8 +86,42 @@ struct Index {
     this.theme = glass.enabled ? getGlassTheme(savedTheme) : getTheme(savedTheme);
     this.cats = await store.getCategories();
     await this.loadMonth();
+    await this.loadTrend();
     const all = await store.getTransactions();
     this.recentTxns = all.slice(0, 6);
+    // 刷新桌面小组件数据
+    await store.writeMonthlySummary();
+  }
+
+  // 加载最近 6 个月收支趋势
+  async loadTrend(): Promise<void> {
+    const trend: TrendMonth[] = [];
+    for (let i = 5; i >= 0; i--) {
+      let m = this.month - i;
+      let y = this.year;
+      if (m <= 0) { m += 12; y -= 1; }
+      const txns = await store.getTransactionsByMonth(y, m);
+      let inc = 0;
+      let exp = 0;
+      for (const t of txns) {
+        if (t.type === TxType.Income) inc += t.amount;
+        else exp += t.amount;
+      }
+      trend.push({ label: `${m}月`, income: inc, expense: exp });
+    }
+    this.trendData = trend;
+  }
+
+  // 趋势柱高（按最大值归一化到 55px，两柱总高 ≤ 113px < 容器 120px）
+  trendBarHeight(v: number, isIncome: boolean): number {
+    let max = 0;
+    for (const m of this.trendData) {
+      if (m.income > max) max = m.income;
+      if (m.expense > max) max = m.expense;
+    }
+    if (max <= 0) return 2;
+    const h = Math.round(v / max * 55);
+    return h < 2 ? 2 : h;
   }
 
   async loadMonth(): Promise<void> {
@@ -164,6 +206,23 @@ struct Index {
 
   goRecords(): void {
     router.pushUrl({ url: 'pages/Records' });
+  }
+
+  // 分类统计钻取
+  goCategoryDetail(categoryId: string): void {
+    router.pushUrl({
+      url: 'pages/CategoryDetail',
+      params: {
+        'categoryId': categoryId,
+        'year': this.year.toString(),
+        'month': this.month.toString()
+      }
+    });
+  }
+
+  // 记账日历
+  goCalendar(): void {
+    router.pushUrl({ url: 'pages/CalendarPage' });
   }
 
   catNameOf(tx: Transaction): string {
@@ -365,10 +424,107 @@ struct Index {
                       .fontWeight(FontWeight.Medium)
                   }
                   .margin({ right: 14, bottom: 8 })
+                  .onClick(() => this.goCategoryDetail(s.categoryId))
                 }, (s: CategoryStat) => s.categoryId)
               }
               .width('100%')
               .margin({ top: 16 })
+            }
+          }
+          .width('100%')
+          .backgroundColor(this.theme.bgCard)
+          .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
+          .borderRadius(20)
+          .border({ width: 1, color: this.theme.border })
+          .padding(20)
+          .margin({ bottom: 14 })
+
+          // ===== 月度趋势图 =====
+          Column() {
+            Row() {
+              Text('月度趋势')
+                .fontSize(15)
+                .fontWeight(FontWeight.Medium)
+                .fontColor(this.theme.textPrimary)
+                .layoutWeight(1)
+              Text('日历 ›')
+                .fontSize(13)
+                .fontColor(this.theme.accent)
+                .onClick(() => this.goCalendar())
+            }
+            .width('100%')
+            .margin({ bottom: 16 })
+
+            if (this.trendData.length === 0) {
+              Column() {
+                Text('暂无数据')
+                  .fontSize(14)
+                  .fontColor(this.theme.textMuted)
+              }
+              .width('100%')
+              .padding(20)
+              .justifyContent(FlexAlign.Center)
+            } else {
+              // 图例
+              Row() {
+                Row() {
+                  Row()
+                    .width(10)
+                    .height(10)
+                    .borderRadius(2)
+                    .backgroundColor(this.theme.income)
+                  Text(' 收入')
+                    .fontSize(11)
+                    .fontColor(this.theme.textSecondary)
+                }
+                .margin({ right: 16 })
+
+                Row() {
+                  Row()
+                    .width(10)
+                    .height(10)
+                    .borderRadius(2)
+                    .backgroundColor(this.theme.expense)
+                  Text(' 支出')
+                    .fontSize(11)
+                    .fontColor(this.theme.textSecondary)
+                }
+              }
+              .width('100%')
+              .margin({ bottom: 12 })
+
+              // 柱状图：每月两组柱子（收入/支出）
+              Row() {
+                ForEach(this.trendData, (m: TrendMonth) => {
+                  Column() {
+                    // 柱子区（固定高度，柱高按比例）
+                    Column() {
+                      Row()
+                        .width(10)
+                        .height(this.trendBarHeight(m.income, true))
+                        .borderRadius(3)
+                        .backgroundColor(this.theme.income)
+                      Blank().height(3)
+                      Row()
+                        .width(10)
+                        .height(this.trendBarHeight(m.expense, false))
+                        .borderRadius(3)
+                        .backgroundColor(this.theme.expense)
+                    }
+                    .height(120)
+                    .justifyContent(FlexAlign.End)
+                    .alignItems(HorizontalAlign.Center)
+
+                    Text(m.label)
+                      .fontSize(10)
+                      .fontColor(this.theme.textSecondary)
+                      .margin({ top: 6 })
+                  }
+                  .layoutWeight(1)
+                }, (m: TrendMonth) => m.label)
+              }
+              .width('100%')
+              .alignItems(VerticalAlign.Bottom)
             }
           }
           .width('100%')

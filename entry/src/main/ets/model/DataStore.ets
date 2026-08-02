@@ -4,6 +4,8 @@
  */
 import { preferences } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
+import { fileIo as fs } from '@kit.CoreFileKit';
+import { formProvider, formBindingData } from '@kit.FormKit';
 import { Category, Transaction, Budget, DEFAULT_CATEGORIES, TxType } from './Models';
 
 const STORE_NAME = 'ledger_store';
@@ -16,10 +18,21 @@ const KEY_GLASS_BLUR = 'glassBlur';
 const KEY_WALLPAPER_FILE = 'wallpaperFile';
 const KEY_INIT = 'initialized';
 
+/** 备份文件数据结构 */
+interface BackupData {
+  app: string;
+  version: number;
+  exportedAt: string;
+  categories: Category[];
+  transactions: Transaction[];
+  budgets: Budget[];
+}
+
 export class DataStore {
   private static instance: DataStore | null = null;
   private pref: preferences.Preferences | null = null;
   private ready: Promise<void> | null = null;
+  private appContext: common.Context | null = null;
 
   private constructor() {}
 
@@ -47,6 +60,7 @@ export class DataStore {
 
   private async doInit(context: common.Context): Promise<void> {
     try {
+      this.appContext = context;
       this.pref = await preferences.getPreferences(context, STORE_NAME);
       const inited = await this.getRaw(KEY_INIT);
       if (!inited) {
@@ -128,12 +142,85 @@ export class DataStore {
     const list = await this.getTransactions();
     list.unshift(tx);
     await this.setRaw(KEY_TRANSACTIONS, JSON.stringify(list));
+    await this.writeMonthlySummary();
   }
 
   async deleteTransaction(id: string): Promise<void> {
     const list = await this.getTransactions();
     const filtered = list.filter(t => t.id !== id);
     await this.setRaw(KEY_TRANSACTIONS, JSON.stringify(filtered));
+    await this.writeMonthlySummary();
+  }
+
+  /**
+   * 写入月度汇总文件（桌面小组件读取用）
+   */
+  async writeMonthlySummary(): Promise<void> {
+    try {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = now.getMonth() + 1;
+      const txns = await this.getTransactionsByMonth(y, m);
+      let income = 0;
+      let expense = 0;
+      for (const t of txns) {
+        if (t.type === TxType.Income) income += t.amount;
+        else expense += t.amount;
+      }
+      const summary: Record<string, string> = {
+        'monthLabel': `${y}年${m}月`,
+        'income': this.fmtMoney(income),
+        'expense': this.fmtMoney(expense),
+        'balance': this.fmtMoney(income - expense)
+      };
+      const ctx = this.appContext;
+      if (ctx) {
+        // 同步写文件（Form 读取要求同步可用）
+        const path = `${ctx.filesDir}/monthly_summary.json`;
+        try {
+          const file = fs.openSync(path, fs.OpenMode.CREATE | fs.OpenMode.READ_WRITE | fs.OpenMode.TRUNC);
+          fs.writeSync(file.fd, JSON.stringify(summary));
+          fs.closeSync(file);
+          console.info(`[Summary] written: ${path}`);
+        } catch (e) {
+          console.error(`[Summary] write failed: ${JSON.stringify(e)}`);
+        }
+        // 主动推送桌面卡片刷新
+        await this.pushToForms(summary);
+      }
+    } catch (e) {
+      console.error(`[Summary] error: ${JSON.stringify(e)}`);
+    }
+  }
+
+  // 推送数据到所有活跃的桌面卡片
+  private async pushToForms(summary: Record<string, string>): Promise<void> {
+    try {
+      const infos = await formProvider.getPublishedRunningFormInfos();
+      if (infos.length === 0) {
+        console.info(`[Summary] no active forms`);
+        return;
+      }
+      const obj: Record<string, Object> = {
+        'monthLabel': summary['monthLabel'],
+        'balance': summary['balance'],
+        'income': summary['income'],
+        'expense': summary['expense']
+      };
+      const binding = formBindingData.createFormBindingData(obj);
+      for (const info of infos) {
+        await formProvider.updateForm(info.formId, binding);
+      }
+      console.info(`[Summary] pushed to ${infos.length} forms`);
+    } catch (e) {
+      console.error(`[Summary] pushToForms failed: ${JSON.stringify(e)}`);
+    }
+  }
+
+  fmtMoney(v: number): string {
+    const neg = v < 0;
+    const s = Math.abs(v).toFixed(2);
+    return (neg ? '-' : '') + '¥ ' + s;
   }
 
   /**
@@ -224,6 +311,54 @@ export class DataStore {
       map.set(t.categoryId, (cur ? cur : 0) + t.amount);
     }
     return map;
+  }
+
+  // ===== 备份/恢复 =====
+  /**
+   * 导出全部数据为 JSON 字符串
+   */
+  async exportAll(): Promise<string> {
+    const categories = await this.getCategories();
+    const transactions = await this.getTransactions();
+    const budgetsRaw = await this.getRaw(KEY_BUDGETS);
+    let budgets: Budget[] = [];
+    if (budgetsRaw) {
+      try { budgets = JSON.parse(budgetsRaw) as Budget[]; } catch (e) { budgets = []; }
+    }
+    const data: BackupData = {
+      app: 'HarmonyLedger',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      categories: categories,
+      transactions: transactions,
+      budgets: budgets
+    };
+    return JSON.stringify(data);
+  }
+
+  /**
+   * 从 JSON 字符串恢复全部数据（覆盖现有）
+   */
+  async importAll(json: string): Promise<boolean> {
+    try {
+      const parsed = JSON.parse(json) as object;
+      if (!parsed) return false;
+      const data = parsed as BackupData;
+      if (data.app !== 'HarmonyLedger') return false;
+      const categories: Category[] = data.categories || [];
+      const transactions: Transaction[] = data.transactions || [];
+      const budgets: Budget[] = data.budgets || [];
+      // 过滤无效交易
+      const validTx = transactions.filter(t =>
+        t && t.amount !== undefined && !isNaN(t.amount) && t.amount > 0 && t.date && t.categoryId
+      );
+      await this.setRaw(KEY_CATEGORIES, JSON.stringify(categories));
+      await this.setRaw(KEY_TRANSACTIONS, JSON.stringify(validTx));
+      await this.setRaw(KEY_BUDGETS, JSON.stringify(budgets));
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 }
 
