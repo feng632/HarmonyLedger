@@ -4,6 +4,7 @@
 import { DataStore } from '../model/DataStore';
 import { Category, TxType, genId, CATEGORY_COLORS } from '../model/Models';
 import { ThemeColors, getTheme, DARK_THEME } from '../common/Theme';
+import { pickAndSaveWallpaper, getWallpaperPath, removeWallpaper, GLASS_BLUR_MIN, GLASS_BLUR_MAX } from '../common/GlassKit';
 import { router } from '@kit.ArkUI';
 import { promptAction } from '@kit.ArkUI';
 
@@ -34,6 +35,11 @@ struct Settings {
     color: CATEGORY_COLORS[0]
   };
 
+  // 玻璃主题状态
+  @State glassEnabled: boolean = false;
+  @State glassBlur: number = 30;
+  @State hasWallpaper: boolean = false;
+
   aboutToAppear(): void {
     this.load();
   }
@@ -48,7 +54,52 @@ struct Settings {
     const saved = await store.getTheme();
     this.themeName = saved;
     this.theme = getTheme(saved);
+    this.glassEnabled = await store.getGlassEnabled();
+    this.glassBlur = await store.getGlassBlur();
+    this.hasWallpaper = (await getWallpaperPath(this.getUIContext().getHostContext()!)).length > 0;
     this.cats = await store.getCategories();
+  }
+
+  // 切换玻璃模式
+  async toggleGlass(on: boolean): Promise<void> {
+    this.glassEnabled = on;
+    await store.saveGlassEnabled(on);
+    if (on && !this.hasWallpaper) {
+      promptAction.showToast({ message: '请先选择一张壁纸照片' });
+    }
+  }
+
+  // 选择壁纸
+  async pickWallpaper(): Promise<void> {
+    const ctx = this.getUIContext().getHostContext();
+    if (!ctx) return;
+    promptAction.showToast({ message: '正在打开相册...' });
+    const path = await pickAndSaveWallpaper(ctx);
+    if (path.length > 0) {
+      this.hasWallpaper = true;
+      this.glassEnabled = true;
+      await store.saveGlassEnabled(true);
+      promptAction.showToast({ message: '壁纸已设置 ✓' });
+    } else {
+      promptAction.showToast({ message: '未选择照片' });
+    }
+  }
+
+  // 移除壁纸
+  async removeWallpaper(): Promise<void> {
+    const ctx = this.getUIContext().getHostContext();
+    if (!ctx) return;
+    await removeWallpaper(ctx);
+    this.hasWallpaper = false;
+    this.glassEnabled = false;
+    await store.saveGlassEnabled(false);
+    promptAction.showToast({ message: '已移除壁纸' });
+  }
+
+  // 调节模糊度
+  async onBlurChange(v: number): Promise<void> {
+    this.glassBlur = v;
+    await store.saveGlassBlur(v);
   }
 
   toggleTheme(): void {
@@ -341,6 +392,99 @@ struct Settings {
                   this.theme = getTheme(next);
                   store.saveTheme(next);
                 })
+            }
+            .width('100%')
+          }
+          .width('100%')
+          .backgroundColor(this.theme.bgCard)
+          .borderRadius(20)
+          .border({ width: 1, color: this.theme.border })
+          .padding(20)
+          .margin({ bottom: 14 })
+
+          // ===== 玻璃主题 =====
+          Column() {
+            Row() {
+              Column() {
+                Text('玻璃主题')
+                  .fontSize(15)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor(this.theme.textPrimary)
+                Text('照片壁纸 + 毛玻璃卡片')
+                  .fontSize(11)
+                  .fontColor(this.theme.textMuted)
+                  .margin({ top: 3 })
+              }
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
+
+              Toggle({ type: ToggleType.Switch, isOn: this.glassEnabled })
+                .selectedColor(this.theme.accent)
+                .onChange((isOn: boolean) => this.toggleGlass(isOn))
+            }
+            .width('100%')
+            .margin({ bottom: 12 })
+
+            // 模糊度滑块
+            Column() {
+              Row() {
+                Text('模糊度')
+                  .fontSize(13)
+                  .fontColor(this.theme.textSecondary)
+                  .layoutWeight(1)
+                Text(`${Math.round(this.glassBlur)}`)
+                  .fontSize(13)
+                  .fontColor(this.theme.accent)
+                  .fontWeight(FontWeight.Medium)
+              }
+              .width('100%')
+              .margin({ bottom: 6 })
+
+              Slider({
+                value: this.glassBlur,
+                min: GLASS_BLUR_MIN,
+                max: GLASS_BLUR_MAX,
+                step: 1
+              })
+                .selectedColor(this.theme.accent)
+                .trackColor(this.theme.bgElevated)
+                .blockColor(this.theme.accent)
+                .onChange((v: number) => this.onBlurChange(v))
+            }
+            .width('100%')
+            .margin({ bottom: 12 })
+
+            // 壁纸操作
+            Row() {
+              Text('壁纸')
+                .fontSize(13)
+                .fontColor(this.theme.textSecondary)
+                .layoutWeight(1)
+              if (this.hasWallpaper) {
+                Text('更换')
+                  .fontSize(13)
+                  .fontColor(this.theme.accent)
+                  .padding({ left: 14, right: 14, top: 6, bottom: 6 })
+                  .backgroundColor(this.theme.accentMuted)
+                  .borderRadius(8)
+                  .onClick(() => this.pickWallpaper())
+                Text('移除')
+                  .fontSize(13)
+                  .fontColor(this.theme.danger)
+                  .padding({ left: 14, right: 14, top: 6, bottom: 6 })
+                  .backgroundColor(this.theme.expenseBg)
+                  .borderRadius(8)
+                  .margin({ left: 8 })
+                  .onClick(() => this.removeWallpaper())
+              } else {
+                Text('选择照片')
+                  .fontSize(13)
+                  .fontColor(Color.White)
+                  .padding({ left: 14, right: 14, top: 6, bottom: 6 })
+                  .backgroundColor(this.theme.accent)
+                  .borderRadius(8)
+                  .onClick(() => this.pickWallpaper())
+              }
             }
             .width('100%')
           }

@@ -81,6 +81,38 @@ export function getTheme(themeName: string | undefined): ThemeColors {
 }
 
 /**
+ * 玻璃版主题：背景透明（显示壁纸照片），卡片半透明白（玻璃质感）
+ * 调用方负责给卡片组件加 backdropBlur
+ * 注意：ArkTS 不支持对象展开，字段全部显式写出
+ */
+export function getGlassTheme(themeName: string | undefined): ThemeColors {
+  const light = themeName === 'light';
+  return {
+    bgPrimary: 'rgba(0,0,0,0)',
+    bgCard: 'rgba(255,255,255,0.12)',
+    bgElevated: 'rgba(255,255,255,0.18)',
+    bgInput: 'rgba(255,255,255,0.10)',
+    border: 'rgba(255,255,255,0.25)',
+    borderLight: 'rgba(255,255,255,0.15)',
+    textPrimary: light ? '#1A1A1A' : '#F5F5F5',
+    textSecondary: light ? '#666666' : '#CCCCCC',
+    textMuted: light ? '#999999' : '#888888',
+    accent: light ? '#B48250' : '#D4A574',
+    accentHover: light ? '#A07440' : '#C9975E',
+    accentMuted: 'rgba(212,165,116,0.20)',
+    income: light ? '#4CAF7D' : '#7DCEA0',
+    incomeBg: 'rgba(125,206,160,0.20)',
+    expense: light ? '#D96B5A' : '#E88D7D',
+    expenseBg: 'rgba(232,141,125,0.20)',
+    danger: '#E06060',
+    warning: '#E8C76D',
+    shadow: 'rgba(0,0,0,0.30)',
+    navBg: 'rgba(15,15,15,0.55)',
+    balanceBg: 'rgba(255,255,255,0.12)'
+  };
+}
+
+/**
  * 金额格式化
  */
 export function fmtMoney(amount: number): string {

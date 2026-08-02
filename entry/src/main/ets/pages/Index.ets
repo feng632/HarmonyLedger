@@ -3,7 +3,8 @@
  */
 import { DataStore } from '../model/DataStore';
 import { Category, Transaction, TxType, CategoryStat } from '../model/Models';
-import { ThemeColors, getTheme, fmtMoney, DARK_THEME } from '../common/Theme';
+import { ThemeColors, getTheme, getGlassTheme, fmtMoney, DARK_THEME } from '../common/Theme';
+import { GlassBackground, loadGlassState } from '../common/GlassComponents';
 import { router } from '@kit.ArkUI';
 
 const store = DataStore.getInstance();
@@ -45,6 +46,11 @@ struct Index {
   // 图表刷新版本号（数据更新时自增，强制重建图表）
   @State chartVersion: number = 0;
 
+  // 玻璃模式状态
+  @State glassEnabled: boolean = false;
+  @State glassBlur: number = 30;
+  @State wallpaperPath: string = '';
+
   aboutToAppear(): void {
     this.loadData();
   }
@@ -64,7 +70,12 @@ struct Index {
     // 读取已保存主题
     const savedTheme = await store.getTheme();
     this.themeName = savedTheme;
-    this.theme = getTheme(savedTheme);
+    // 读取玻璃状态
+    const glass = await loadGlassState(this.getUIContext().getHostContext());
+    this.glassEnabled = glass.enabled;
+    this.glassBlur = glass.blur;
+    this.wallpaperPath = glass.wallpaperPath;
+    this.theme = glass.enabled ? getGlassTheme(savedTheme) : getTheme(savedTheme);
     this.cats = await store.getCategories();
     await this.loadMonth();
     const all = await store.getTransactions();
@@ -166,7 +177,13 @@ struct Index {
   }
 
   build() {
-    Column() {
+    Stack() {
+      // 玻璃壁纸背景（无壁纸时显示纯色）
+      GlassBackground({ wallpaperPath: this.wallpaperPath, blurRadius: this.glassBlur })
+        .width('100%')
+        .height('100%')
+
+      Column() {
       // ===== 顶部导航 =====
       Row() {
         Text('记账')
@@ -295,6 +312,7 @@ struct Index {
           }
           .width('100%')
           .backgroundColor(this.theme.bgCard)
+          .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
           .borderRadius(24)
           .border({ width: 1, color: this.theme.border })
           .shadow({ radius: 16, color: this.theme.shadow, offsetY: 4 })
@@ -350,6 +368,7 @@ struct Index {
           }
           .width('100%')
           .backgroundColor(this.theme.bgCard)
+          .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
           .borderRadius(20)
           .border({ width: 1, color: this.theme.border })
           .padding(20)
@@ -422,6 +441,7 @@ struct Index {
           }
           .width('100%')
           .backgroundColor(this.theme.bgCard)
+          .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
           .borderRadius(20)
           .border({ width: 1, color: this.theme.border })
           .padding(20)
@@ -504,11 +524,14 @@ struct Index {
       .width('100%')
       .height(64)
       .padding({ bottom: 8 })
-      .backgroundColor(this.theme.bgPrimary)
+      .backgroundColor(this.glassEnabled ? 'rgba(15,15,15,0.55)' : this.theme.bgPrimary)
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(this.glassEnabled ? 'rgba(0,0,0,0)' : this.theme.bgPrimary)
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.theme.bgPrimary)
   }
 }
 

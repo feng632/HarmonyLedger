@@ -11,6 +11,9 @@ const KEY_CATEGORIES = 'categories';
 const KEY_TRANSACTIONS = 'transactions';
 const KEY_BUDGETS = 'budgets';
 const KEY_THEME = 'theme';
+const KEY_GLASS_ENABLED = 'glassEnabled';
+const KEY_GLASS_BLUR = 'glassBlur';
+const KEY_WALLPAPER_FILE = 'wallpaperFile';
 const KEY_INIT = 'initialized';
 
 export class DataStore {
@@ -177,6 +180,36 @@ export class DataStore {
 
   async saveTheme(theme: string): Promise<void> {
     await this.setRaw(KEY_THEME, theme);
+  }
+
+  // ===== 玻璃模式 =====
+  async getGlassEnabled(): Promise<boolean> {
+    const raw = await this.getRaw(KEY_GLASS_ENABLED);
+    return raw === '1';
+  }
+
+  async saveGlassEnabled(enabled: boolean): Promise<void> {
+    await this.setRaw(KEY_GLASS_ENABLED, enabled ? '1' : '0');
+  }
+
+  async getGlassBlur(): Promise<number> {
+    const raw = await this.getRaw(KEY_GLASS_BLUR);
+    const v = parseFloat(raw ? raw : '');
+    return (isNaN(v) || v <= 0) ? 30 : v;
+  }
+
+  async saveGlassBlur(blur: number): Promise<void> {
+    await this.setRaw(KEY_GLASS_BLUR, blur.toString());
+  }
+
+  // 壁纸文件相对路径（应用沙箱内）
+  async getWallpaperFile(): Promise<string> {
+    const raw = await this.getRaw(KEY_WALLPAPER_FILE);
+    return raw ? raw : '';
+  }
+
+  async saveWallpaperFile(fileName: string): Promise<void> {
+    await this.setRaw(KEY_WALLPAPER_FILE, fileName);
   }
 
   /**
