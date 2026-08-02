@@ -24,6 +24,8 @@ struct Records {
   @State groups: DayGroup[] = [];
   @State filter: string = 'all'; // all | expense | income
   @State search: string = '';
+  // 列表刷新版本号（数据变化时自增，强制重建 List）
+  @State listVersion: number = 0;
 
   aboutToAppear(): void {
     this.load();
@@ -76,6 +78,7 @@ struct Records {
       });
     }
     this.groups = groups;
+    this.listVersion++;
   }
 
   setFilter(f: string): void {
@@ -275,6 +278,7 @@ struct Records {
         .layoutWeight(1)
         .width('100%')
         .scrollBar(BarState.Off)
+        .key(`${this.listVersion}`)
       }
     }
     .width('100%')
