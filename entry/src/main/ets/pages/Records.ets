@@ -111,12 +111,25 @@ struct Records {
       ]
     }).then((res) => {
       if (res.index === 1) {
-        store.deleteTransaction(id).then(() => {
-          this.load();
-          promptAction.showToast({ message: '已删除' });
-        });
+        this.doDelete(id);
       }
     }).catch(() => {});
+  }
+
+  // 实际删除：删数据 → 从当前列表状态移除 → 刷新
+  async doDelete(id: string): Promise<void> {
+    await store.deleteTransaction(id);
+    // 直接从 groups 状态中移除该条记录
+    const newGroups: DayGroup[] = [];
+    for (const g of this.groups) {
+      const items = g.items.filter(t => t.id !== id);
+      if (items.length > 0) {
+        newGroups.push({ date: g.date, label: g.label, items: items });
+      }
+    }
+    this.groups = newGroups;
+    this.listVersion++;
+    promptAction.showToast({ message: '已删除' });
   }
 
   build() {
