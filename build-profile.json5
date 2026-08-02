@@ -5,13 +5,13 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "C:\\Users\\feng\\.ohos\\config\\default_HarmonyLedger_XXf-8WBkm8miNAhfmes5SAXwtgzXS8Hu5OQ7Ayxv17w=.cer",
-          "keyAlias": "debugKey",
-          "keyPassword": "0000001ABB5F01BAA8EC46DC762036FFCC9ED9E171C249361BBBC634506BF5D3EDA9DD98CFF5C4B1DF5A",
-          "profile": "C:\\Users\\feng\\.ohos\\config\\default_HarmonyLedger_XXf-8WBkm8miNAhfmes5SAXwtgzXS8Hu5OQ7Ayxv17w=.p7b",
+          "storeFile": "D:/mobile/HarmonyLedger/signing/LedgerRelease3.p12",
+          "storePassword": "0000001A05FD09FDF1E20B054E3B53DC4BC15DF0F643F2676B425ECEAA9FD629A47EAABEBF0E45DA5C72",
+          "keyAlias": "releasekey",
+          "keyPassword": "0000001AB5AE0A97ACB626C0FA33647DB787D8DB593A4C06859EDE51F4ED949BE4DE26E464F12142D404",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "C:\\Users\\feng\\.ohos\\config\\default_HarmonyLedger_XXf-8WBkm8miNAhfmes5SAXwtgzXS8Hu5OQ7Ayxv17w=.p12",
-          "storePassword": "0000001A3876FA0111BBAD38B61A1968AD19EAA3EA6D3223EEA1E6108FFD4D1B449B84C58A3CCA8EA043"
+          "profile": "D:/mobile/HarmonyLedger/signing/LedgerReleaseProfileRelease.p7b",
+          "certpath": "D:/mobile/HarmonyLedger/signing/LedgerRelease.cer"
         }
       }
     ],

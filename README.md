@@ -59,13 +59,13 @@ git clone https://github.com/<你的用户名>/HarmonyLedger.git
 
 ### 方式一：桌面直接安装（推荐）
 
-1. 通过微信 / 华为分享 / 网盘等任意方式获取安装包 `entry-default-signed.hap`（约 400KB）
+1. 通过微信 / 华为分享 / 网盘等任意方式获取安装包 `entry-default-signed.hap`（约 850KB）
 2. 将文件发送到手机（微信：发送给「文件传输助手」后下载；华为设备：华为分享秒传）
 3. 在手机 **文件管理器** 中找到该文件并点击
 4. 首次安装会提示「允许安装未知来源应用」→ 点击 **设置 → 允许**（华为设备路径：设置 → 应用 → 权限管理）
 5. 返回点击安装包 → **安装** → 完成后桌面出现「记账」图标
 
-> ⚠️ 说明：此安装包使用调试签名，仅限个人使用，**不能**上架华为应用市场。
+> ✅ 当前安装包使用**发布签名**，不绑定设备，任何 HarmonyOS NEXT 手机均可安装。
 
 ### 方式二：开发者直连部署（开发者使用）
 
@@ -79,12 +79,38 @@ hdc list targets
 hdc install -r entry/build/default/outputs/default/entry-default-signed.hap
 
 # 3. 启动应用
-hdc shell aa start -a EntryAbility -b com.feng.ledger
+hdc shell aa start -a EntryAbility -b com.feng.myledger
 ```
 
 ### 卸载
 
 桌面长按「记账」图标 → 卸载。卸载后本地记账数据将一并清除。
+
+## 🔑 发布签名（开发者）
+
+> 发布签名包不绑定设备，任何 HarmonyOS NEXT 手机都能安装，可微信直发分享。
+> 签名材料存放于 `signing/` 目录（已加入 .gitignore，不会上传仓库）。
+
+### 签名材料清单
+
+| 文件 | 用途 |
+|------|------|
+| `LedgerRelease3.p12` | 密钥库（别名 `releasekey`，密码为生成时设置） |
+| `LedgerRelease.cer` | 华为签发的发布证书 |
+| `LedgerReleaseProfileRelease.p7b` | 发布 Profile（绑定应用 `com.feng.myledger`） |
+
+### 配置方法
+
+1. **华为开发者平台**（<https://developer.huawei.com>）：
+   - 实名认证 → 证书管理 → 生成 CSR（**必须用 DevEco 生成 ECDSA 格式**，RSA 会被拒绝）
+   - 创建 APP ID（包名 `com.feng.myledger`）→ 创建发布 Profile（关联证书 + APP ID）
+2. **DevEco**：`文件 → 项目结构 → 签名配置` → 取消自动签名 → 手动填入：
+   - Store file / Key alias / Key password / Certpath / Profile
+3. **构建**：`Build → Build Hap(s)` → 产物 `entry-default-signed.hap` 即为发布包
+
+### 更新发布
+
+以后更新功能：改代码 → 重新构建 → 新的 `entry-default-signed.hap` 直接发出去即可（签名材料不变）。
 
 ## 📁 项目结构
 

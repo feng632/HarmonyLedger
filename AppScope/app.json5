@@ -1,6 +1,6 @@
 {
   "app": {
-    "bundleName": "com.feng.ledger",
+    "bundleName": "com.feng.myledger",
     "vendor": "feng",
     "versionCode": 1000000,
     "versionName": "1.0.0",
