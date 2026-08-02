@@ -139,8 +139,13 @@ struct Index {
       });
       cumulative += frac;
     }
-    this.donutParts = parts;
+    // 先清空再填充 — 强制重建图表（动态编译模式下直接替换不生效）
+    this.donutParts = [];
     this.chartVersion++;
+    setTimeout(() => {
+      this.donutParts = parts;
+      this.chartVersion++;
+    }, 30);
   }
 
   changeMonth(delta: number): void {

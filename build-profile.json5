@@ -7,11 +7,11 @@
         "material": {
           "certpath": "C:\\Users\\feng\\.ohos\\config\\default_HarmonyLedger_XXf-8WBkm8miNAhfmes5SAXwtgzXS8Hu5OQ7Ayxv17w=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001B783DB00D2B98B338AD5C02AF778CCA2EFA008BBA557AE5E0BEB9FF3CAE16BCDBDA5439B7E76A5C",
+          "keyPassword": "0000001ABB5F01BAA8EC46DC762036FFCC9ED9E171C249361BBBC634506BF5D3EDA9DD98CFF5C4B1DF5A",
           "profile": "C:\\Users\\feng\\.ohos\\config\\default_HarmonyLedger_XXf-8WBkm8miNAhfmes5SAXwtgzXS8Hu5OQ7Ayxv17w=.p7b",
           "signAlg": "SHA256withECDSA",
           "storeFile": "C:\\Users\\feng\\.ohos\\config\\default_HarmonyLedger_XXf-8WBkm8miNAhfmes5SAXwtgzXS8Hu5OQ7Ayxv17w=.p12",
-          "storePassword": "0000001B2D892EDA421473ADE26A48878D7B61AD9CDE39F884A1D671DC4E4D68BB020782A1D5822938DB2C"
+          "storePassword": "0000001A3876FA0111BBAD38B61A1968AD19EAA3EA6D3223EEA1E6108FFD4D1B449B84C58A3CCA8EA043"
         }
       }
     ],
