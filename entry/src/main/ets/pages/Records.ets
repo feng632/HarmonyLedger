@@ -243,9 +243,10 @@ struct Records {
         .justifyContent(FlexAlign.Center)
         .key(`empty-${this.listTick}`)
       } else {
-        Scroll() {
-          Column() {
-            ForEach(this.groups, (group: DayGroup) => {
+        // List 懒加载 + key 强制重建（避免 Scroll 顶部空白问题）
+        List({ space: 0 }) {
+          ForEach(this.groups, (group: DayGroup) => {
+            ListItem() {
               // 日期标题
               Text(group.label)
                 .fontSize(12)
@@ -253,9 +254,10 @@ struct Records {
                 .fontWeight(FontWeight.Medium)
                 .width('100%')
                 .padding({ top: 16, bottom: 8 })
+            }
 
-              // 该日期的交易行
-              ForEach(group.items, (tx: Transaction) => {
+            ForEach(group.items, (tx: Transaction) => {
+              ListItem() {
                 Row() {
                   Text(this.catIcon(tx))
                     .fontSize(20)
@@ -295,10 +297,9 @@ struct Records {
                   LongPressGesture()
                     .onAction(() => this.deleteTx(tx.id))
                 )
-              }, (tx: Transaction) => tx.id)
-            }, (group: DayGroup) => group.date)
-          }
-          .width('100%')
+              }
+            }, (tx: Transaction) => tx.id)
+          }, (group: DayGroup) => group.date)
         }
         .layoutWeight(1)
         .width('100%')
