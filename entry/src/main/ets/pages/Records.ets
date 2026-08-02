@@ -24,8 +24,6 @@ struct Records {
   @State groups: DayGroup[] = [];
   @State filter: string = 'all'; // all | expense | income
   @State search: string = '';
-  // 列表刷新版本号（数据变化时自增，强制重建 List）
-  @State listVersion: number = 0;
 
   aboutToAppear(): void {
     this.load();
@@ -77,8 +75,8 @@ struct Records {
         items: map.get(d) as Transaction[]
       });
     }
+    console.info(`[Records] load: ${groups.length} 天, ${txns.length} 条`);
     this.groups = groups;
-    this.listVersion++;
   }
 
   setFilter(f: string): void {
@@ -118,7 +116,9 @@ struct Records {
 
   // 实际删除：删数据 → 从当前列表状态移除 → 刷新
   async doDelete(id: string): Promise<void> {
+    console.info(`[Records] doDelete start: ${id}`);
     await store.deleteTransaction(id);
+    console.info(`[Records] doDelete data removed: ${id}`);
     // 直接从 groups 状态中移除该条记录
     const newGroups: DayGroup[] = [];
     for (const g of this.groups) {
@@ -127,9 +127,10 @@ struct Records {
         newGroups.push({ date: g.date, label: g.label, items: items });
       }
     }
+    console.info(`[Records] doDelete groups: ${this.groups.length} -> ${newGroups.length} 天`);
     this.groups = newGroups;
-    this.listVersion++;
     promptAction.showToast({ message: '已删除' });
+    console.info(`[Records] doDelete done, state updated`);
   }
 
   build() {
@@ -215,7 +216,7 @@ struct Records {
       .width('100%')
       .padding({ left: 16, right: 16, bottom: 12 })
 
-      // ===== 列表 =====
+      // ===== 列表（Scroll + Column 全量渲染）=====
       if (this.groups.length === 0) {
         Column() {
           Text('· · ·')
@@ -230,21 +231,19 @@ struct Records {
         .padding(60)
         .justifyContent(FlexAlign.Center)
       } else {
-        List({ space: 0 }) {
-          ForEach(this.groups, (group: DayGroup) => {
-            ListItem() {
-              Column() {
-                Text(group.label)
-                  .fontSize(12)
-                  .fontColor(this.theme.textSecondary)
-                  .fontWeight(FontWeight.Medium)
-                  .width('100%')
-                  .padding({ top: 16, bottom: 8 })
-              }
-            }
+        Scroll() {
+          Column() {
+            ForEach(this.groups, (group: DayGroup) => {
+              // 日期标题
+              Text(group.label)
+                .fontSize(12)
+                .fontColor(this.theme.textSecondary)
+                .fontWeight(FontWeight.Medium)
+                .width('100%')
+                .padding({ top: 16, bottom: 8 })
 
-            ForEach(group.items, (tx: Transaction) => {
-              ListItem() {
+              // 该日期的交易行
+              ForEach(group.items, (tx: Transaction) => {
                 Row() {
                   Text(this.catIcon(tx))
                     .fontSize(20)
@@ -284,14 +283,14 @@ struct Records {
                   LongPressGesture()
                     .onAction(() => this.deleteTx(tx.id))
                 )
-              }
-            }, (tx: Transaction) => tx.id)
-          }, (group: DayGroup) => group.date)
+              }, (tx: Transaction) => tx.id)
+            }, (group: DayGroup) => group.date)
+          }
+          .width('100%')
         }
         .layoutWeight(1)
         .width('100%')
         .scrollBar(BarState.Off)
-        .key(`${this.listVersion}`)
       }
     }
     .width('100%')
