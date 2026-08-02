@@ -42,6 +42,8 @@ struct Index {
 
   // 环形图数据
   @State donutParts: DonutPart[] = [];
+  // 图表刷新版本号（数据更新时自增，强制重建图表）
+  @State chartVersion: number = 0;
 
   aboutToAppear(): void {
     this.loadData();
@@ -113,6 +115,7 @@ struct Index {
     const total = this.monthData.expense;
     if (total <= 0 || this.monthData.catStats.length === 0) {
       this.donutParts = [];
+      this.chartVersion++;
       return;
     }
     let cumulative = 0;
@@ -126,6 +129,7 @@ struct Index {
       cumulative += frac;
     }
     this.donutParts = parts;
+    this.chartVersion++;
   }
 
   changeMonth(delta: number): void {
@@ -306,7 +310,9 @@ struct Index {
               .margin({ bottom: 16 })
 
             if (this.donutParts.length > 0 && this.monthData.expense > 0) {
+              // key 使用版本号，数据变化时强制重建图表
               DonutChart({ theme: this.theme, parts: this.donutParts, total: this.monthData.expense })
+                .key(`${this.chartVersion}`)
             } else {
               Column() {
                 Text('暂无支出数据')
