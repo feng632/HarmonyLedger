@@ -78,13 +78,17 @@ struct Settings {
     const ctx = this.getUIContext().getHostContext();
     if (!ctx) return;
     promptAction.showToast({ message: '正在打开相册...' });
+    console.info(`[Glass] pickWallpaper start`);
     const path = await pickAndSaveWallpaper(ctx);
+    console.info(`[Glass] pickWallpaper path='${path}'`);
     if (path.length > 0) {
       this.hasWallpaper = true;
       this.glassEnabled = true;
       await store.saveGlassEnabled(true);
+      console.info(`[Glass] saveGlassEnabled(true) done`);
       promptAction.showToast({ message: '壁纸已设置 ✓' });
     } else {
+      console.info(`[Glass] path empty, skip save`);
       promptAction.showToast({ message: '未选择照片' });
     }
   }

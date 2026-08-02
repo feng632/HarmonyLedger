@@ -267,59 +267,69 @@ struct Records {
         // List 懒加载 + key 强制重建（避免 Scroll 顶部空白问题）
         List({ space: 0 }) {
           ForEach(this.groups, (group: DayGroup) => {
+            // 每天一个玻璃大面板：日期标题 + 当天所有记录
             ListItem() {
-              // 日期标题
-              Text(group.label)
-                .fontSize(12)
-                .fontColor(this.theme.textSecondary)
-                .fontWeight(FontWeight.Medium)
-                .width('100%')
-                .padding({ top: 16, bottom: 8 })
-            }
+              Column() {
+                // 日期标题
+                Text(group.label)
+                  .fontSize(12)
+                  .fontColor(this.theme.textSecondary)
+                  .fontWeight(FontWeight.Medium)
+                  .width('100%')
+                  .padding({ top: 14, bottom: 8 })
 
-            ForEach(group.items, (tx: Transaction) => {
-              ListItem() {
-                Row() {
-                  Text(this.catIcon(tx))
-                    .fontSize(20)
-                    .width(42)
-                    .height(42)
-                    .textAlign(TextAlign.Center)
-                    .backgroundColor(this.catColorBg(tx))
-                    .borderRadius(9)
+                // 当天所有记录
+                ForEach(group.items, (tx: Transaction) => {
+                  Row() {
+                    Text(this.catIcon(tx))
+                      .fontSize(20)
+                      .width(42)
+                      .height(42)
+                      .textAlign(TextAlign.Center)
+                      .backgroundColor(this.catColorBg(tx))
+                      .borderRadius(9)
 
-                  Column() {
-                    Text(this.catName(tx))
-                      .fontSize(15)
-                      .fontColor(this.theme.textPrimary)
-                      .fontWeight(FontWeight.Medium)
-                    if (tx.note.length > 0) {
-                      Text(tx.note)
-                        .fontSize(12)
-                        .fontColor(this.theme.textSecondary)
-                        .maxLines(1)
-                        .textOverflow({ overflow: TextOverflow.Ellipsis })
-                        .margin({ top: 2 })
+                    Column() {
+                      Text(this.catName(tx))
+                        .fontSize(15)
+                        .fontColor(this.theme.textPrimary)
+                        .fontWeight(FontWeight.Medium)
+                      if (tx.note.length > 0) {
+                        Text(tx.note)
+                          .fontSize(12)
+                          .fontColor(this.theme.textSecondary)
+                          .maxLines(1)
+                          .textOverflow({ overflow: TextOverflow.Ellipsis })
+                          .margin({ top: 2 })
+                      }
                     }
-                  }
-                  .alignItems(HorizontalAlign.Start)
-                  .layoutWeight(1)
-                  .margin({ left: 12 })
+                    .alignItems(HorizontalAlign.Start)
+                    .layoutWeight(1)
+                    .margin({ left: 12 })
 
-                  Text((tx.type === TxType.Expense ? '-' : '+') + ' ' + formatCurrency(tx.amount))
-                    .fontSize(15)
-                    .fontWeight(FontWeight.Medium)
-                    .fontColor(tx.type === TxType.Expense ? this.theme.expense : this.theme.income)
-                    .fontFeature('tnum')
-                }
-                .width('100%')
-                .padding({ top: 12, bottom: 12 })
-                .gesture(
-                  LongPressGesture()
-                    .onAction(() => this.deleteTx(tx.id))
-                )
+                    Text((tx.type === TxType.Expense ? '-' : '+') + ' ' + formatCurrency(tx.amount))
+                      .fontSize(15)
+                      .fontWeight(FontWeight.Medium)
+                      .fontColor(tx.type === TxType.Expense ? this.theme.expense : this.theme.income)
+                      .fontFeature('tnum')
+                  }
+                  .width('100%')
+                  .padding({ top: 10, bottom: 10 })
+                  .gesture(
+                    LongPressGesture()
+                      .onAction(() => this.deleteTx(tx.id))
+                  )
+                }, (tx: Transaction) => tx.id)
               }
-            }, (tx: Transaction) => tx.id)
+              .width('100%')
+              .padding({ left: 16, right: 16, bottom: 8 })
+              // 玻璃模式：整个面板半透明玻璃（多条记录共用一个玻璃）
+              .backgroundColor(this.glassEnabled ? 'rgba(255,255,255,0.12)' : Color.Transparent)
+              .borderRadius(18)
+              .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
+              .border({ width: this.glassEnabled ? 1 : 0, color: 'rgba(255,255,255,0.22)' })
+              .margin({ bottom: this.glassEnabled ? 12 : 0 })
+            }
           }, (group: DayGroup) => group.date)
         }
         .layoutWeight(1)

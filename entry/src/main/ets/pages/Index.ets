@@ -524,7 +524,8 @@ struct Index {
       .width('100%')
       .height(64)
       .padding({ bottom: 8 })
-      .backgroundColor(this.glassEnabled ? 'rgba(15,15,15,0.55)' : this.theme.bgPrimary)
+      .backgroundColor(this.glassEnabled ? 'rgba(255,255,255,0.12)' : this.theme.bgPrimary)
+      .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
       }
       .width('100%')
       .height('100%')

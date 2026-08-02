@@ -60,6 +60,7 @@ export async function pickAndSaveWallpaper(context: common.Context): Promise<str
     }
 
     await store.saveWallpaperFile(fileName);
+    console.info(`[Glass] saved wallpaperFile='${fileName}' dest='${destPath}'`);
     return destPath;
   } catch (e) {
     console.error(`[Glass] pick failed: ${JSON.stringify(e)}`);

@@ -17,11 +17,11 @@ export struct GlassBackground {
 
   build() {
     if (this.wallpaperPath.length > 0) {
-      Image(this.wallpaperPath)
+      // 沙箱路径需要 file:// 前缀才能被 Image 加载
+      Image('file://' + this.wallpaperPath)
         .width('100%')
         .height('100%')
         .objectFit(ImageFit.Cover)
-        .blur(this.blurRadius)
         .position({ x: 0, y: 0 })
     } else {
       Blank()
