@@ -6,6 +6,8 @@ import { Category, Transaction, Template, TxType, DateUtil, genId } from '../mod
 import { ThemeColors, getTheme, getGlassTheme, DARK_THEME } from '../common/Theme';
 import { GlassBackground, loadGlassState } from '../common/GlassComponents';
 import { checkAndNotifyBudget } from '../common/BudgetAlert';
+import { SpeechRecognizer, parseSpeech, SpeechCategory } from '../common/SpeechKit';
+import { abilityAccessCtrl, Permissions } from '@kit.AbilityKit';
 import { router } from '@kit.ArkUI';
 import { promptAction } from '@kit.ArkUI';
 import { BusinessError } from '@kit.BasicServicesKit';
@@ -36,6 +38,9 @@ struct AddRecord {
   // 记账模板
   @State templates: Template[] = [];
   @State allCats: Category[] = [];
+  // 语音记账
+  @State isListening: boolean = false;
+  private recognizer: SpeechRecognizer | null = null;
   // 模板编辑弹窗状态
   @State tplEditorVisible: boolean = false;
   @State tplEditorIsNew: boolean = true;
@@ -277,6 +282,96 @@ struct AddRecord {
     promptAction.showToast({ message: '模板已保存' });
   }
 
+  // ===== 语音记账 =====
+
+  // 请求麦克风权限
+  async requestMicPermission(): Promise<boolean> {
+    try {
+      const ctx = this.getUIContext().getHostContext();
+      if (!ctx) return false;
+      const atManager = abilityAccessCtrl.createAtManager();
+      const result = await atManager.requestPermissionsFromUser(ctx, ['ohos.permission.MICROPHONE']);
+      if (result.authResults.length > 0 && result.authResults[0] === 0) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error(`[Speech] permission failed: ${JSON.stringify(e)}`);
+      return false;
+    }
+  }
+
+  // 开始语音识别
+  async startSpeech(): Promise<void> {
+    if (this.isListening) return;
+    // 1. 请求麦克风权限
+    const granted = await this.requestMicPermission();
+    if (!granted) {
+      promptAction.showToast({ message: '需要麦克风权限才能语音记账' });
+      return;
+    }
+
+    this.isListening = true;
+    promptAction.showToast({ message: '请说话，如"早餐八块"' });
+
+    if (!this.recognizer) {
+      this.recognizer = new SpeechRecognizer();
+    }
+    await this.recognizer.start((text: string) => {
+      this.isListening = false;
+      if (text.length === 0) {
+        promptAction.showToast({ message: '未听清，请重试' });
+        return;
+      }
+      this.handleSpeechResult(text);
+    });
+  }
+
+  // 处理识别结果：解析并填入表单
+  handleSpeechResult(text: string): void {
+    // 构造分类列表（ArkTS 不允许 map 返回对象字面量）
+    const cats: SpeechCategory[] = [];
+    for (const c of this.allCats) {
+      const sc: SpeechCategory = { id: c.id, name: c.name, icon: c.icon };
+      cats.push(sc);
+    }
+    const parsed = parseSpeech(text, cats);
+
+    promptAction.showToast({ message: `识别：${text}` });
+
+    // 填入金额
+    if (parsed.amount > 0) {
+      this.amountStr = parsed.amount.toString();
+      this.updateDisplayAmount();
+    }
+
+    // 填入分类
+    if (parsed.categoryId.length > 0) {
+      this.selectedCatId = parsed.categoryId;
+      this.selectedCatName = parsed.categoryName;
+      // 切换分类列表显示
+      const cat = this.allCats.find(c => c.id === parsed.categoryId);
+      if (cat) {
+        this.isExpense = cat.type === TxType.Expense;
+      }
+    } else {
+      promptAction.showToast({ message: '未识别到分类，请手动选择' });
+    }
+
+    if (parsed.amount === 0) {
+      promptAction.showToast({ message: '未识别到金额，请手动输入' });
+    }
+  }
+
+  // 停止语音
+  stopSpeech(): void {
+    if (this.recognizer) {
+      this.recognizer.shutdown();
+      this.recognizer = null;
+    }
+    this.isListening = false;
+  }
+
   @Builder
   keyButton(key: string) {
     Text(key)
@@ -421,21 +516,49 @@ struct AddRecord {
             .margin({ top: 14, bottom: 4 })
           }
 
-          // ===== 金额显示（带圆角卡底）=====
-          Column() {
-            Text(this.isExpense ? '本月支出' : '本月收入')
-              .fontSize(11)
-              .fontColor(this.theme.textSecondary)
-              .letterSpacing(1)
-            Text('¥ ' + this.displayAmount)
-              .fontSize(46)
-              .fontWeight(FontWeight.Lighter)
-              .fontColor(this.amountStr === '' ? this.theme.textMuted : this.isExpense ? this.theme.textPrimary : this.theme.income)
-              .fontFeature('tnum')
-              .margin({ top: 8 })
+          // ===== 金额显示 + 语音按钮 =====
+          Row() {
+            // 语音记账按钮
+            Column() {
+              Text(this.isListening ? '🎤···' : '🎤')
+                .fontSize(26)
+                .width(52)
+                .height(52)
+                .textAlign(TextAlign.Center)
+                .backgroundColor(this.isListening ? this.theme.expenseBg : this.theme.accentMuted)
+                .borderRadius(26)
+                .onClick(() => {
+                  if (this.isListening) {
+                    this.stopSpeech();
+                  } else {
+                    this.startSpeech();
+                  }
+                })
+              Text(this.isListening ? '聆听中' : '语音记账')
+                .fontSize(9)
+                .fontColor(this.theme.textSecondary)
+                .margin({ top: 4 })
+            }
+            .width(64)
+            .justifyContent(FlexAlign.Center)
+
+            // 金额显示
+            Column() {
+              Text(this.isExpense ? '本月支出' : '本月收入')
+                .fontSize(11)
+                .fontColor(this.theme.textSecondary)
+                .letterSpacing(1)
+              Text('¥ ' + this.displayAmount)
+                .fontSize(46)
+                .fontWeight(FontWeight.Lighter)
+                .fontColor(this.amountStr === '' ? this.theme.textMuted : this.isExpense ? this.theme.textPrimary : this.theme.income)
+                .fontFeature('tnum')
+                .margin({ top: 8 })
+            }
+            .layoutWeight(1)
           }
           .width('100%')
-          .padding({ top: 18, bottom: 18 })
+          .padding({ top: 18, bottom: 18, left: 16, right: 16 })
           .backgroundColor(this.theme.bgCard)
           .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
           .borderRadius(16)

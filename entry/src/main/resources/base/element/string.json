@@ -19,6 +19,10 @@
     {
       "name": "balance_card_desc",
       "value": "查看本月余额、收入与支出"
+    },
+    {
+      "name": "mic_permission_desc",
+      "value": "用于语音记账识别"
     }
   ]
 }
