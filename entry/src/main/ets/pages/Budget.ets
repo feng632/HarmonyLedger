@@ -3,7 +3,8 @@
  */
 import { DataStore } from '../model/DataStore';
 import { Category, Transaction, TxType, Budget } from '../model/Models';
-import { ThemeColors, getTheme, fmtMoney, DARK_THEME } from '../common/Theme';
+import { ThemeColors, getTheme, getGlassTheme, fmtMoney, DARK_THEME } from '../common/Theme';
+import { GlassBackground, loadGlassState } from '../common/GlassComponents';
 import { router } from '@kit.ArkUI';
 import { promptAction } from '@kit.ArkUI';
 
@@ -21,6 +22,11 @@ struct BudgetPage {
   @State budgetStr: string = '';
   @State cats: Category[] = [];
 
+  // 玻璃模式状态
+  @State glassEnabled: boolean = false;
+  @State glassBlur: number = 30;
+  @State wallpaperPath: string = '';
+
   aboutToAppear(): void {
     this.load();
   }
@@ -32,7 +38,12 @@ struct BudgetPage {
     } catch (e) {
       console.error(`[Budget] store init failed: ${JSON.stringify(e)}`);
     }
-    this.theme = getTheme(await store.getTheme());
+    const savedTheme = await store.getTheme();
+    const glass = await loadGlassState(this.getUIContext().getHostContext());
+    this.glassEnabled = glass.enabled;
+    this.glassBlur = glass.blur;
+    this.wallpaperPath = glass.wallpaperPath;
+    this.theme = glass.enabled ? getGlassTheme(savedTheme) : getTheme(savedTheme);
     this.cats = await store.getCategories();
 
     const budget = await store.getBudget(this.year, this.month);
@@ -103,6 +114,12 @@ struct BudgetPage {
   }
 
   build() {
+    Stack() {
+      // 玻璃壁纸背景
+      GlassBackground({ wallpaperPath: this.wallpaperPath, blurRadius: this.glassBlur })
+        .width('100%')
+        .height('100%')
+
     Column() {
       // 导航栏
       Row() {
@@ -199,6 +216,7 @@ struct BudgetPage {
           }
           .width('100%')
           .backgroundColor(this.theme.bgCard)
+          .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
           .borderRadius(20)
           .border({ width: 1, color: this.theme.border })
           .padding(20)
@@ -308,6 +326,7 @@ struct BudgetPage {
           }
           .width('100%')
           .backgroundColor(this.theme.bgCard)
+          .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
           .borderRadius(20)
           .border({ width: 1, color: this.theme.border })
           .padding(20)
@@ -317,9 +336,12 @@ struct BudgetPage {
       }
       .layoutWeight(1)
       .scrollBar(BarState.Off)
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(this.glassEnabled ? 'rgba(0,0,0,0)' : this.theme.bgPrimary)
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.theme.bgPrimary)
   }
 }

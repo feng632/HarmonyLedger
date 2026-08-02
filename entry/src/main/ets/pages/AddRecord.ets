@@ -3,7 +3,8 @@
  */
 import { DataStore } from '../model/DataStore';
 import { Category, Transaction, TxType, DateUtil, genId } from '../model/Models';
-import { ThemeColors, getTheme, DARK_THEME } from '../common/Theme';
+import { ThemeColors, getTheme, getGlassTheme, DARK_THEME } from '../common/Theme';
+import { GlassBackground, loadGlassState } from '../common/GlassComponents';
 import { router } from '@kit.ArkUI';
 import { promptAction } from '@kit.ArkUI';
 import { BusinessError } from '@kit.BasicServicesKit';
@@ -24,6 +25,11 @@ struct AddRecord {
   @State displayAmount: string = '0.00';
   @State note: string = '';
   @State dateStr: string = DateUtil.today();
+
+  // 玻璃模式状态
+  @State glassEnabled: boolean = false;
+  @State glassBlur: number = 30;
+  @State wallpaperPath: string = '';
 
   // 数字键盘布局（4 行 × 3 列）
   private keys: string[][] = [
@@ -52,7 +58,12 @@ struct AddRecord {
     } catch (e) {
       console.error(`[AddRecord] store init failed: ${JSON.stringify(e)}`);
     }
-    this.theme = getTheme(await store.getTheme());
+    const savedTheme = await store.getTheme();
+    const glass = await loadGlassState(this.getUIContext().getHostContext());
+    this.glassEnabled = glass.enabled;
+    this.glassBlur = glass.blur;
+    this.wallpaperPath = glass.wallpaperPath;
+    this.theme = glass.enabled ? getGlassTheme(savedTheme) : getTheme(savedTheme);
     const all = await store.getCategories();
     this.cats = all.filter(c => c.type === (this.isExpense ? TxType.Expense : TxType.Income));
     if (this.selectedCatId === '' && this.cats.length > 0) {
@@ -169,6 +180,12 @@ struct AddRecord {
   }
 
   build() {
+    Stack() {
+      // 玻璃壁纸背景
+      GlassBackground({ wallpaperPath: this.wallpaperPath, blurRadius: this.glassBlur })
+        .width('100%')
+        .height('100%')
+
     Column() {
       // ===== 导航栏 =====
       Row() {
@@ -220,6 +237,7 @@ struct AddRecord {
           }
           .width('100%')
           .backgroundColor(this.theme.bgCard)
+          .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
           .borderRadius(14)
           .border({ width: 1, color: this.theme.border })
           .padding(4)
@@ -240,6 +258,7 @@ struct AddRecord {
           .width('100%')
           .padding({ top: 18, bottom: 18 })
           .backgroundColor(this.theme.bgCard)
+          .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
           .borderRadius(16)
           .border({ width: 1, color: this.theme.border })
           .margin({ top: 14, bottom: 14 })
@@ -298,6 +317,7 @@ struct AddRecord {
           }
           .width('100%')
           .backgroundColor(this.theme.bgCard)
+          .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
           .borderRadius(20)
           .border({ width: 1, color: this.theme.border })
           .padding(20)
@@ -344,6 +364,7 @@ struct AddRecord {
           }
           .width('100%')
           .backgroundColor(this.theme.bgCard)
+          .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
           .borderRadius(20)
           .border({ width: 1, color: this.theme.border })
           .padding({ left: 20, right: 20, top: 12, bottom: 12 })
@@ -407,10 +428,14 @@ struct AddRecord {
       .width('100%')
       .padding({ left: 8, right: 8, top: 6, bottom: 8 })
       .backgroundColor(this.theme.bgCard)
+      .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
       .border({ width: { top: 1 }, color: this.theme.border })
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(this.glassEnabled ? 'rgba(0,0,0,0)' : this.theme.bgPrimary)
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.theme.bgPrimary)
   }
 }

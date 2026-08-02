@@ -3,7 +3,8 @@
  */
 import { DataStore } from '../model/DataStore';
 import { Category, Transaction, TxType, DateUtil, formatCurrency } from '../model/Models';
-import { ThemeColors, getTheme, DARK_THEME } from '../common/Theme';
+import { ThemeColors, getTheme, getGlassTheme, DARK_THEME } from '../common/Theme';
+import { GlassBackground, loadGlassState } from '../common/GlassComponents';
 import { router } from '@kit.ArkUI';
 import { promptAction } from '@kit.ArkUI';
 
@@ -27,6 +28,11 @@ struct Records {
   // 列表重绘 tick（清空/填充时自增，配合 if/else 强制整树重建）
   @State listTick: number = 0;
 
+  // 玻璃模式状态
+  @State glassEnabled: boolean = false;
+  @State glassBlur: number = 30;
+  @State wallpaperPath: string = '';
+
   aboutToAppear(): void {
     this.load();
   }
@@ -38,7 +44,12 @@ struct Records {
     } catch (e) {
       console.error(`[Records] store init failed: ${JSON.stringify(e)}`);
     }
-    this.theme = getTheme(await store.getTheme());
+    const savedTheme = await store.getTheme();
+    const glass = await loadGlassState(this.getUIContext().getHostContext());
+    this.glassEnabled = glass.enabled;
+    this.glassBlur = glass.blur;
+    this.wallpaperPath = glass.wallpaperPath;
+    this.theme = glass.enabled ? getGlassTheme(savedTheme) : getTheme(savedTheme);
     this.cats = await store.getCategories();
     let txns = await store.getTransactions();
 
@@ -144,6 +155,12 @@ struct Records {
   }
 
   build() {
+    Stack() {
+      // 玻璃壁纸背景
+      GlassBackground({ wallpaperPath: this.wallpaperPath, blurRadius: this.glassBlur })
+        .width('100%')
+        .height('100%')
+
     Column() {
       // ===== 导航栏 =====
       Row() {
@@ -184,6 +201,7 @@ struct Records {
       }
       .width('100%')
       .backgroundColor(this.theme.bgCard)
+      .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
       .borderRadius(14)
       .border({ width: 1, color: this.theme.border })
       .padding({ left: 14, right: 14, top: 8, bottom: 8 })
@@ -197,6 +215,7 @@ struct Records {
           .fontColor(this.filter === 'all' ? Color.White : this.theme.textSecondary)
           .padding({ left: 16, right: 16, top: 8, bottom: 8 })
           .backgroundColor(this.filter === 'all' ? this.theme.accent : this.theme.bgCard)
+          .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
           .borderRadius(20)
           .border({ width: 1, color: this.filter === 'all' ? this.theme.accent : this.theme.border })
           .onClick(() => this.setFilter('all'))
@@ -207,6 +226,7 @@ struct Records {
           .fontColor(this.filter === 'expense' ? Color.White : this.theme.textSecondary)
           .padding({ left: 16, right: 16, top: 8, bottom: 8 })
           .backgroundColor(this.filter === 'expense' ? this.theme.accent : this.theme.bgCard)
+          .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
           .borderRadius(20)
           .border({ width: 1, color: this.filter === 'expense' ? this.theme.accent : this.theme.border })
           .margin({ left: 8 })
@@ -218,6 +238,7 @@ struct Records {
           .fontColor(this.filter === 'income' ? Color.White : this.theme.textSecondary)
           .padding({ left: 16, right: 16, top: 8, bottom: 8 })
           .backgroundColor(this.filter === 'income' ? this.theme.accent : this.theme.bgCard)
+          .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
           .borderRadius(20)
           .border({ width: 1, color: this.filter === 'income' ? this.theme.accent : this.theme.border })
           .margin({ left: 8 })
@@ -306,9 +327,12 @@ struct Records {
         .scrollBar(BarState.Off)
         .key(`list-${this.listTick}`)
       }
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(this.glassEnabled ? 'rgba(0,0,0,0)' : this.theme.bgPrimary)
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.theme.bgPrimary)
   }
 }

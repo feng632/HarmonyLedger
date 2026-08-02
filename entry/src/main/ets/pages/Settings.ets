@@ -3,7 +3,8 @@
  */
 import { DataStore } from '../model/DataStore';
 import { Category, TxType, genId, CATEGORY_COLORS } from '../model/Models';
-import { ThemeColors, getTheme, DARK_THEME } from '../common/Theme';
+import { ThemeColors, getTheme, getGlassTheme, DARK_THEME } from '../common/Theme';
+import { GlassBackground, loadGlassState } from '../common/GlassComponents';
 import { pickAndSaveWallpaper, getWallpaperPath, removeWallpaper, GLASS_BLUR_MIN, GLASS_BLUR_MAX } from '../common/GlassKit';
 import { router } from '@kit.ArkUI';
 import { promptAction } from '@kit.ArkUI';
@@ -39,6 +40,7 @@ struct Settings {
   @State glassEnabled: boolean = false;
   @State glassBlur: number = 30;
   @State hasWallpaper: boolean = false;
+  @State wallpaperPath: string = '';
 
   aboutToAppear(): void {
     this.load();
@@ -53,9 +55,11 @@ struct Settings {
     }
     const saved = await store.getTheme();
     this.themeName = saved;
-    this.theme = getTheme(saved);
-    this.glassEnabled = await store.getGlassEnabled();
-    this.glassBlur = await store.getGlassBlur();
+    const glass = await loadGlassState(this.getUIContext().getHostContext());
+    this.glassEnabled = glass.enabled;
+    this.glassBlur = glass.blur;
+    this.wallpaperPath = glass.wallpaperPath;
+    this.theme = glass.enabled ? getGlassTheme(saved) : getTheme(saved);
     this.hasWallpaper = (await getWallpaperPath(this.getUIContext().getHostContext()!)).length > 0;
     this.cats = await store.getCategories();
   }
@@ -351,6 +355,12 @@ struct Settings {
   }
 
   build() {
+    Stack() {
+      // 玻璃壁纸背景
+      GlassBackground({ wallpaperPath: this.wallpaperPath, blurRadius: this.glassBlur })
+        .width('100%')
+        .height('100%')
+
     Column() {
       // 导航栏
       Row() {
@@ -397,6 +407,7 @@ struct Settings {
           }
           .width('100%')
           .backgroundColor(this.theme.bgCard)
+          .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
           .borderRadius(20)
           .border({ width: 1, color: this.theme.border })
           .padding(20)
@@ -490,6 +501,7 @@ struct Settings {
           }
           .width('100%')
           .backgroundColor(this.theme.bgCard)
+          .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
           .borderRadius(20)
           .border({ width: 1, color: this.theme.border })
           .padding(20)
@@ -557,6 +569,7 @@ struct Settings {
           }
           .width('100%')
           .backgroundColor(this.theme.bgCard)
+          .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
           .borderRadius(20)
           .border({ width: 1, color: this.theme.border })
           .padding(20)
@@ -624,6 +637,7 @@ struct Settings {
           }
           .width('100%')
           .backgroundColor(this.theme.bgCard)
+          .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
           .borderRadius(20)
           .border({ width: 1, color: this.theme.border })
           .padding(20)
@@ -662,9 +676,12 @@ struct Settings {
         .width('100%')
         .height('100%')
       }
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(this.glassEnabled ? 'rgba(0,0,0,0)' : this.theme.bgPrimary)
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.theme.bgPrimary)
   }
 }
