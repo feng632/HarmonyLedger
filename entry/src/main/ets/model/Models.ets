@@ -25,6 +25,17 @@ export interface Transaction {
   createdAt: number;
 }
 
+/** 记账模板 */
+export interface Template {
+  id: string;
+  icon: string;       // emoji 图标
+  name: string;       // 模板名称（如"早餐"）
+  amount: number;     // 固定金额（0 = 不填金额，手动输入）
+  categoryId: string; // 关联分类
+  note: string;       // 备注（可选）
+  isExpense: boolean; // 支出/收入
+}
+
 export interface Budget {
   id: string;      // budget_yyyy-MM
   amount: number;

@@ -6,12 +6,14 @@ import { preferences } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { formProvider, formBindingData } from '@kit.FormKit';
-import { Category, Transaction, Budget, DEFAULT_CATEGORIES, TxType } from './Models';
+import { Category, Transaction, Budget, Template, DEFAULT_CATEGORIES, TxType } from './Models';
 
 const STORE_NAME = 'ledger_store';
 const KEY_CATEGORIES = 'categories';
 const KEY_TRANSACTIONS = 'transactions';
 const KEY_BUDGETS = 'budgets';
+const KEY_CAT_BUDGETS = 'catBudgets';
+const KEY_TEMPLATES = 'templates';
 const KEY_THEME = 'theme';
 const KEY_GLASS_ENABLED = 'glassEnabled';
 const KEY_GLASS_BLUR = 'glassBlur';
@@ -26,6 +28,14 @@ interface BackupData {
   categories: Category[];
   transactions: Transaction[];
   budgets: Budget[];
+}
+
+/** 分类预算记录 */
+interface CatBudget {
+  categoryId: string;
+  year: number;
+  month: number;
+  amount: number;
 }
 
 export class DataStore {
@@ -259,6 +269,39 @@ export class DataStore {
     await this.setRaw(KEY_BUDGETS, JSON.stringify(list));
   }
 
+  // ===== 分类预算 =====
+  /**
+   * 获取某分类指定月份的预算（没有返回 0）
+   */
+  async getCategoryBudget(categoryId: string, year: number, month: number): Promise<number> {
+    const raw = await this.getRaw(KEY_CAT_BUDGETS);
+    if (!raw) return 0;
+    try {
+      const list = JSON.parse(raw) as CatBudget[];
+      const found = list.find(b => b.categoryId === categoryId && b.year === year && b.month === month);
+      return found ? found.amount : 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /**
+   * 保存分类预算（0 = 删除预算）
+   */
+  async saveCategoryBudget(categoryId: string, year: number, month: number, amount: number): Promise<void> {
+    const raw = await this.getRaw(KEY_CAT_BUDGETS);
+    let list: CatBudget[] = [];
+    if (raw) {
+      try { list = JSON.parse(raw) as CatBudget[]; } catch (e) { list = []; }
+    }
+    // 删除旧的同键记录
+    list = list.filter(b => !(b.categoryId === categoryId && b.year === year && b.month === month));
+    if (amount > 0) {
+      list.push({ categoryId: categoryId, year: year, month: month, amount: amount });
+    }
+    await this.setRaw(KEY_CAT_BUDGETS, JSON.stringify(list));
+  }
+
   // ===== 主题 =====
   async getTheme(): Promise<string> {
     const raw = await this.getRaw(KEY_THEME);
@@ -267,6 +310,34 @@ export class DataStore {
 
   async saveTheme(theme: string): Promise<void> {
     await this.setRaw(KEY_THEME, theme);
+  }
+
+  // ===== 记账模板 =====
+  async getTemplates(): Promise<Template[]> {
+    const raw = await this.getRaw(KEY_TEMPLATES);
+    if (!raw) return [];
+    try {
+      return JSON.parse(raw) as Template[];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  async saveTemplate(tpl: Template): Promise<void> {
+    const list = await this.getTemplates();
+    const idx = list.findIndex(t => t.id === tpl.id);
+    if (idx >= 0) {
+      list[idx] = tpl;
+    } else {
+      list.push(tpl);
+    }
+    await this.setRaw(KEY_TEMPLATES, JSON.stringify(list));
+  }
+
+  async deleteTemplate(id: string): Promise<void> {
+    const list = await this.getTemplates();
+    const filtered = list.filter(t => t.id !== id);
+    await this.setRaw(KEY_TEMPLATES, JSON.stringify(filtered));
   }
 
   // ===== 玻璃模式 =====

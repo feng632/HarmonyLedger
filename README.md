@@ -7,7 +7,7 @@
 
 ![iOS 风格记账](https://img.shields.io/badge/平台-HarmonyOS%20NEXT-0d9488?style=flat-square)
 ![开发语言](https://img.shields.io/badge/语言-ArkTS-blue?style=flat-square)
-![版本](https://img.shields.io/badge/版本-1.2.0-lightgrey?style=flat-square)
+![版本](https://img.shields.io/badge/版本-1.3.0-lightgrey?style=flat-square)
 
 </div>
 

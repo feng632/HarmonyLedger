@@ -22,6 +22,12 @@ struct BudgetPage {
   @State budgetStr: string = '';
   @State cats: Category[] = [];
 
+  // 分类预算状态
+  @State catBudgetMap: Map<string, number> = new Map();   // 分类ID -> 预算
+  @State catSpentMap: Map<string, number> = new Map();    // 分类ID -> 已花
+  @State editingCatId: string = '';                       // 正在编辑预算的分类
+  @State editingCatStr: string = '';                      // 编辑中的预算文本
+
   // 玻璃模式状态
   @State glassEnabled: boolean = false;
   @State glassBlur: number = 30;
@@ -59,6 +65,79 @@ struct BudgetPage {
     this.spent = txns
       .filter(t => t.type === TxType.Expense)
       .reduce((sum, t) => sum + t.amount, 0);
+
+    // 加载分类预算 + 各分类已花
+    await this.loadCategoryBudgets(txns);
+  }
+
+  // 加载所有支出分类的预算和已花
+  async loadCategoryBudgets(txns: Transaction[]): Promise<void> {
+    const expenseCats = this.cats.filter(c => c.type === TxType.Expense);
+    const budgetMap = new Map<string, number>();
+    const spentMap = new Map<string, number>();
+
+    // 各分类已花
+    for (const t of txns) {
+      if (t.type !== TxType.Expense) continue;
+      const cur = spentMap.get(t.categoryId);
+      spentMap.set(t.categoryId, (cur ? cur : 0) + t.amount);
+    }
+
+    // 各分类预算
+    for (const cat of expenseCats) {
+      const b = await store.getCategoryBudget(cat.id, this.year, this.month);
+      budgetMap.set(cat.id, b);
+    }
+
+    this.catBudgetMap = budgetMap;
+    this.catSpentMap = spentMap;
+  }
+
+  // 开始编辑分类预算
+  startEditCatBudget(catId: string, current: number): void {
+    this.editingCatId = catId;
+    this.editingCatStr = current > 0 ? current.toString() : '';
+  }
+
+  // 保存分类预算
+  async saveCatBudget(): Promise<void> {
+    if (this.editingCatId === '') return;
+    const amt = parseFloat(this.editingCatStr);
+    if (isNaN(amt) || amt < 0) {
+      promptAction.showToast({ message: '请输入有效预算金额' });
+      return;
+    }
+    await store.saveCategoryBudget(this.editingCatId, this.year, this.month, amt);
+    this.editingCatId = '';
+    this.editingCatStr = '';
+    promptAction.showToast({ message: amt > 0 ? '分类预算已保存' : '分类预算已清除' });
+    // 刷新
+    const txns = await store.getTransactionsByMonth(this.year, this.month);
+    await this.loadCategoryBudgets(txns);
+  }
+
+  // 分类预算使用率
+  catBudgetPct(catId: string): number {
+    const budget = this.catBudgetMap.get(catId) || 0;
+    const spent = this.catSpentMap.get(catId) || 0;
+    if (budget <= 0) return 0;
+    return Math.min(spent / budget * 100, 100);
+  }
+
+  // 分类预算状态文字
+  catBudgetLine(catId: string): string {
+    const budget = this.catBudgetMap.get(catId) || 0;
+    const spent = this.catSpentMap.get(catId) || 0;
+    if (budget <= 0) return '未设置预算';
+    const pct = Math.round(spent / budget * 100);
+    return `已花 ${pct}%`;
+  }
+
+  // 分类预算进度条颜色
+  catBudgetColor(pct: number): string {
+    if (pct >= 90) return this.theme.danger;
+    if (pct >= 70) return this.theme.warning;
+    return this.theme.accent;
   }
 
   // 预算使用率（普通方法，避免 getter this 绑定问题）
@@ -213,6 +292,129 @@ struct BudgetPage {
               .width('100%')
               .margin({ top: 20 })
             }
+          }
+          .width('100%')
+          .backgroundColor(this.theme.bgCard)
+          .backdropBlur(this.glassEnabled ? this.glassBlur : 0)
+          .borderRadius(20)
+          .border({ width: 1, color: this.theme.border })
+          .padding(20)
+          .margin({ bottom: 14 })
+
+          // ===== 分类预算 =====
+          Column() {
+            Row() {
+              Text('分类预算')
+                .fontSize(15)
+                .fontWeight(FontWeight.Medium)
+                .fontColor(this.theme.textPrimary)
+                .layoutWeight(1)
+              Text('为每个支出分类单独设预算')
+                .fontSize(11)
+                .fontColor(this.theme.textMuted)
+            }
+            .width('100%')
+            .margin({ bottom: 8 })
+
+            // 各支出分类预算行
+            ForEach(this.cats.filter(c => c.type === TxType.Expense), (cat: Category) => {
+              Column() {
+                // 分类行：图标 + 名称 + 预算/已花
+                Row() {
+                  Text(cat.icon)
+                    .fontSize(16)
+                    .width(34)
+                    .height(34)
+                    .textAlign(TextAlign.Center)
+                    .backgroundColor(cat.color + '22')
+                    .borderRadius(8)
+
+                  Column() {
+                    Text(cat.name)
+                      .fontSize(14)
+                      .fontWeight(FontWeight.Medium)
+                      .fontColor(this.theme.textPrimary)
+                    Text(this.catBudgetLine(cat.id))
+                      .fontSize(11)
+                      .fontColor(this.theme.textSecondary)
+                      .margin({ top: 2 })
+                  }
+                  .alignItems(HorizontalAlign.Start)
+                  .layoutWeight(1)
+                  .margin({ left: 10 })
+
+                  // 编辑按钮 / 保存按钮
+                  if (this.editingCatId === cat.id) {
+                    Row() {
+                      TextInput({ placeholder: '预算', text: this.editingCatStr })
+                        .fontSize(13)
+                        .type(InputType.NUMBER_DECIMAL)
+                        .placeholderColor(this.theme.textMuted)
+                        .backgroundColor(Color.Transparent)
+                        .width(70)
+                        .height(32)
+                        .onChange((v: string) => this.editingCatStr = v)
+                      Text('✓')
+                        .fontSize(16)
+                        .fontColor(this.theme.income)
+                        .width(32)
+                        .height(32)
+                        .textAlign(TextAlign.Center)
+                        .onClick(() => this.saveCatBudget())
+                      Text('✕')
+                        .fontSize(14)
+                        .fontColor(this.theme.textMuted)
+                        .width(28)
+                        .height(32)
+                        .textAlign(TextAlign.Center)
+                        .onClick(() => {
+                          this.editingCatId = '';
+                          this.editingCatStr = '';
+                        })
+                    }
+                  } else {
+                    Row() {
+                      if ((this.catBudgetMap.get(cat.id) || 0) > 0) {
+                        Text(`${fmtMoney(this.catSpentMap.get(cat.id) || 0)} / ${fmtMoney(this.catBudgetMap.get(cat.id) || 0)}`)
+                          .fontSize(11)
+                          .fontColor(this.theme.textSecondary)
+                          .margin({ right: 6 })
+                      }
+                      Text('设置')
+                        .fontSize(12)
+                        .fontColor(this.theme.accent)
+                        .padding({ left: 10, right: 10, top: 4, bottom: 4 })
+                        .backgroundColor(this.theme.accentMuted)
+                        .borderRadius(6)
+                        .onClick(() => this.startEditCatBudget(cat.id, this.catBudgetMap.get(cat.id) || 0))
+                    }
+                  }
+                }
+                .width('100%')
+                .padding({ top: 8, bottom: 8 })
+
+                // 进度条（有预算时显示）
+                if ((this.catBudgetMap.get(cat.id) || 0) > 0) {
+                  Stack({ alignContent: Alignment.Start }) {
+                    Row()
+                      .width('100%')
+                      .height(4)
+                      .borderRadius(2)
+                      .backgroundColor(this.theme.bgElevated)
+                    Row()
+                      .width(`${this.catBudgetPct(cat.id)}%`)
+                      .height(4)
+                      .borderRadius(2)
+                      .backgroundColor(this.catBudgetColor(this.catBudgetPct(cat.id)))
+                  }
+                  .width('100%')
+                  .height(4)
+                  .margin({ bottom: 4 })
+                }
+              }
+              .width('100%')
+              .border({ width: { bottom: 1 }, color: this.theme.borderLight })
+            }, (cat: Category) => cat.id)
           }
           .width('100%')
           .backgroundColor(this.theme.bgCard)
