@@ -24,6 +24,8 @@ struct Records {
   @State groups: DayGroup[] = [];
   @State filter: string = 'all'; // all | expense | income
   @State search: string = '';
+  // 列表重绘 tick（清空/填充时自增，配合 if/else 强制整树重建）
+  @State listTick: number = 0;
 
   aboutToAppear(): void {
     this.load();
@@ -114,12 +116,13 @@ struct Records {
     }).catch(() => {});
   }
 
-  // 实际删除：删数据 → 从当前列表状态移除 → 刷新
+  // 实际删除：删数据 → 强制重建列表（先置空再填充，确保 UI 重绘）
   async doDelete(id: string): Promise<void> {
     console.info(`[Records] doDelete start: ${id}`);
     await store.deleteTransaction(id);
     console.info(`[Records] doDelete data removed: ${id}`);
-    // 直接从 groups 状态中移除该条记录
+
+    // 先从状态移除该记录
     const newGroups: DayGroup[] = [];
     for (const g of this.groups) {
       const items = g.items.filter(t => t.id !== id);
@@ -128,7 +131,14 @@ struct Records {
       }
     }
     console.info(`[Records] doDelete groups: ${this.groups.length} -> ${newGroups.length} 天`);
+
+    // 先清空再填充 — 强制整棵列表树重建，确保 UI 响应
+    this.groups = [];
+    this.listTick++;
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
     this.groups = newGroups;
+    this.listTick++;
+
     promptAction.showToast({ message: '已删除' });
     console.info(`[Records] doDelete done, state updated`);
   }
@@ -217,6 +227,7 @@ struct Records {
       .padding({ left: 16, right: 16, bottom: 12 })
 
       // ===== 列表（Scroll + Column 全量渲染）=====
+      // listTick 作为 key：数据变化时强制销毁重建整棵树
       if (this.groups.length === 0) {
         Column() {
           Text('· · ·')
@@ -230,6 +241,7 @@ struct Records {
         .width('100%')
         .padding(60)
         .justifyContent(FlexAlign.Center)
+        .key(`empty-${this.listTick}`)
       } else {
         Scroll() {
           Column() {
@@ -291,6 +303,7 @@ struct Records {
         .layoutWeight(1)
         .width('100%')
         .scrollBar(BarState.Off)
+        .key(`list-${this.listTick}`)
       }
     }
     .width('100%')
